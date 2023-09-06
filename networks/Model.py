@@ -9,11 +9,13 @@ from torchvision.transforms import Compose, ToTensor, Normalize, Lambda
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from collections import OrderedDict
-from tqdm import trange
+from tqdm import trange, tqdm
 
-from utils.misc import overlay_y_on_x
+from utils.misc import overlay_y_on_x, Conv_overlay_y_on_x
+from networks.block import FC_block
 
-DEVICE = torch.device('cuda')
+
+DEVICE = torch.device('cuda:2')
 writer = SummaryWriter(comment=f"FFLayer")
 
 class Layer(nn.Linear):
@@ -23,7 +25,7 @@ class Layer(nn.Linear):
         self.relu = torch.nn.ReLU()
         self.opt = Adam(self.parameters(), lr=0.03)
         self.threshold = 2.0
-        self.num_epochs = 50000
+        self.num_epochs = 10
 
     def forward(self, x):
         x_direction = x / (x.norm(2, 1, keepdim=True) + 1e-4)
@@ -31,9 +33,10 @@ class Layer(nn.Linear):
             torch.mm(x_direction, self.weight.T) +
             self.bias.unsqueeze(0))
 
-    def train(self, x_pos, x_neg):
+    def ftrain(self, x_pos, x_neg):
         # for i in tqdm(range(self.num_epochs)):
-        for i in trange(self.num_epochs):
+        for i in range(self.num_epochs):
+        # for i in trange(self.num_epochs):
             g_pos = self.forward(x_pos).pow(2).mean(1)
             g_neg = self.forward(x_neg).pow(2).mean(1)
             # The following loss pushes pos (neg) samples to
@@ -73,11 +76,11 @@ class FFNet(torch.nn.Module):
         # goodness_per_label.argmax(1) [50000, 1] 
         return goodness_per_label.argmax(1)
 
-    def train(self, x_pos, x_neg):
+    def ftrain(self, x_pos, x_neg):
         h_pos, h_neg = x_pos, x_neg
         for i, layer in enumerate(self.layers):
-            print('training layer', i, '...')
-            h_pos, h_neg = layer.train(h_pos, h_neg)
+            # print('training layer', i, '...')
+            h_pos, h_neg = layer.ftrain(h_pos, h_neg)
 
 
 class BPNet(torch.nn.Module):
@@ -105,22 +108,45 @@ class BPNet(torch.nn.Module):
         return y
 
 class ConvLayer(nn.Conv2d):
-    def __init__(self, in_channels, out_channels, kernel_size, stride= 1, padding = 0, dilation= 1, groups= 1, bias= True, padding_mode= 'zeros', device=None, dtype=None) -> None:
+    def __init__(self, in_channels, out_channels, kernel_size, stride= 1, padding = 0, dilation= 1, groups= 1, bias= True, padding_mode= 'zeros', device=None, dtype=None, isrelu=True, ismaxpool=True) -> None:
         super().__init__(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, padding_mode, device, dtype)
         self.relu = torch.nn.ReLU()
-        self.opt = Adam(self.parameters(), lr=0.03)
+        self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.opt = Adam(self.parameters(), lr=0.05)
         self.threshold = 2.0
-        self.num_epochs = 10000 
+        self.num_epochs = 1000 
+        self.ismaxpool = ismaxpool
+        self.isrelu = isrelu
+
+        
+        
+    def add_compute(self, func):
+        pass
+        
+    def forward(self, input):
+        
+        output = self._conv_forward(input, self.weight, self.bias)
+        if self.isrelu:
+            output = self.relu(output)
+        if self.ismaxpool:
+            output = self.maxpool(output)
+        return output
     
-    def train(self, x_pos, x_neg):
-        for i in tqdm(range(self.num_epochs)):
+    def ftrain(self, x_pos, x_neg):
+        
+        for i in range(self.num_epochs):
+        # for i in tqdm(range(self.num_epochs)):
             g_pos = self.forward(x_pos).pow(2).mean(1)
             g_neg = self.forward(x_neg).pow(2).mean(1)
             # The following loss pushes pos (neg) samples to
             # values larger (smaller) than the self.threshold.
-            loss = torch.log(1 + torch.exp(torch.cat([
+            T = torch.log(1 + torch.exp(torch.cat([
                 -g_pos + self.threshold,
-                g_neg - self.threshold]))).mean()
+                g_neg - self.threshold]))).mean(dim=(1,2))
+            mask = torch.isinf(T)
+            
+            T = T[~mask]
+            loss = T.mean()
             writer.add_scalar("FFLoss/Layer", loss, i)
             self.opt.zero_grad()
             # this backward just compute the derivative and hence
@@ -128,43 +154,93 @@ class ConvLayer(nn.Conv2d):
             loss.backward()
             self.opt.step()
         return self.forward(x_pos).detach(), self.forward(x_neg).detach()
-        
+
+class FlattenLayer(nn.Flatten):
+    def __init__(self, start_dim: int = 1, end_dim: int = -1) -> None:
+        super().__init__(start_dim, end_dim)
+    
+    def ftrain(self, x_pos, x_neg):
+
+        return x_pos.flatten(self.start_dim, self.end_dim).detach(), x_neg.flatten(self.start_dim, self.end_dim).detach()      
 
 
 class FFAlexNet(torch.nn.Module):
-    def __init__(self, dims, *args, **kwargs) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.layer = [
-            ConvLayer(1, 96, kernel_size=5, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-            ConvLayer(96, 256,kernel_size=5, padding=2),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-            ConvLayer(256, 384, kernel_size=3, padding=1),
-            nn.ReLU(),
-            ConvLayer(384, 384),
-            nn.ReLU(),
-            ConvLayer(384, 256, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-            nn.Flatten(),
-            Layer(6400, 4096), nn.ReLU(),
-            nn.Dropout(p=0.5),
-            Layer(4096, 4096), nn.ReLU(),
-            nn.Dropout(p=0.5),
-            Layer(4096, 10)
+        self.layers = [
+            ConvLayer(1, 32, kernel_size=3, padding=1).to(DEVICE),
+            ConvLayer(32, 64, kernel_size=3, stride=1, padding=1).to(DEVICE),
+            ConvLayer(64, 128, kernel_size=3, padding=1, ismaxpool=False).to(DEVICE),
+            ConvLayer(128, 256, kernel_size=3, padding =1, ismaxpool=False).to(DEVICE),
+            FlattenLayer().to(DEVICE),
+            Layer(12544, 1024).to(DEVICE),
+            Layer(1024, 512).to(DEVICE), 
+            Layer(512, 10).to(DEVICE)
         ]
          
-        
-        
-    
-    def forward(self, x):
-        y = self.model(x)
-        return y
-    
-    def predict(self, x):
-        y = self.forward(x)
-        
-        return y 
+    def ftrain(self, x_pos, x_neg):
+        h_pos, h_neg = x_pos, x_neg
+        for i, layer in enumerate(self.layers):
+            print('training layer', i, '...')
+            layer.train()
+            h_pos, h_neg = layer.ftrain(h_pos, h_neg)        
 
+    def predict(self, x):
+        goodness_per_label = []
+        for label in range(10):
+            h = Conv_overlay_y_on_x(x, label)
+            goodness = []
+            h = h.to(DEVICE)
+            for layer in self.layers:
+                h = layer(h)
+                if isinstance(layer, FlattenLayer):
+                    pass
+                else:
+                    goodness += [h.pow(2).mean(dim=[di for di in range(1, len(h.shape))])]
+            goodness_per_label += [sum(goodness).unsqueeze(1)]
+        goodness_per_label = torch.cat(goodness_per_label, 1)
+        # goodness_per_label [50000, 10]
+        # goodness_per_label.argmax(1) [50000, 1] 
+        return goodness_per_label.argmax(1)
+    
+    
+hyperparams= [16, 1728, 3, 0.005, 20, 'vehicleimage', 0.001, 'C1']
+
+
+class SNN(nn.Module):
+    def __init__(self, layersize, batchsize):
+        """
+        layersize is the size of each layer like [24*24*3, 500, 3]
+        stepsize is the batchsize.
+        """
+        super(SNN, self).__init__()
+        self.layers = nn.ModuleList()
+        self.layers_size = layersize
+        self.lastlayer_size = layersize[-1]
+        self.len = len(self.layers_size) - 1
+        self.error = None
+        self.stepsize = batchsize
+        self.time_windows = 20
+
+        for i in range(self.len):
+            self.layers.append(FC_block(self.stepsize,self.time_windows, self.lastlayer_size, self.layers_size[i], self.layers_size[i + 1]))
+
+    def forward(self, input):
+        for step in range(self.stepsize):
+
+            x = input > torch.rand(input.size()).to(DEVICE)
+
+            x = x.float().to(DEVICE)
+            x = x.view(self.stepsize, -1)
+            y = x
+            for i in range(self.len):
+                y = self.layers[i](y)
+#        print('x',x)
+#        print('x.shape',x.shape)
+        outputs = self.layers[-1].sumspike / self.time_windows 
+
+        return outputs
+
+
+    
 
