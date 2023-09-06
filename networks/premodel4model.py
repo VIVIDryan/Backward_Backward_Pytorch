@@ -1,13 +1,5 @@
-'''
-Author: linjunnuo limchvnno@gmail.com
-Date: 2023-07-25 10:17:07
-LastEditors: linjunnuo limchvnno@gmail.com
-LastEditTime: 2023-07-25 17:08:44
-FilePath: /pytorch_forward_forward/networks/premodel4model.py
-Description: 
-
-Copyright (c) 2023 by linjunnuo , All Rights Reserved. 
-'''
+import torch
+from dataloaders.dataset import MSD_loaders
 import torch.nn as nn
 from torchsummary import summary
 from torchvision import models
@@ -19,7 +11,7 @@ def MSC_premodel():
     description: 用于MSC的模型
 
     '''    
-    train_loader, valid_loader = MSD_loader()
+    train_loader, test_loader = MSD_loaders()
     device = torch.device("cuda:2")
     model = models.resnet50(pretrained = True).to(device)
     summary(model, (3, 224, 224))
