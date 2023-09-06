@@ -8,9 +8,7 @@ from torchvision.transforms import Compose, ToTensor, Normalize, Lambda
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from collections import OrderedDict
-from tqdm import trange
-from utils.misc import overlay_y_on_x
-DEVICE = torch.device('cuda')
+
 from tqdm import trange, tqdm
 
 from utils.misc import overlay_y_on_x, Conv_overlay_y_on_x
@@ -81,8 +79,8 @@ class FFNet(torch.nn.Module):
     def ftrain(self, x_pos, x_neg):
         h_pos, h_neg = x_pos, x_neg
         for i, layer in enumerate(self.layers):
-            print('training layer', i, '...')
-            h_pos, h_neg = layer.train(h_pos, h_neg)
+            # print('training layer', i, '...')
+            h_pos, h_neg = layer.ftrain(h_pos, h_neg)
 
 
 class BPNet(torch.nn.Module):
@@ -204,6 +202,7 @@ class FFAlexNet(torch.nn.Module):
         # goodness_per_label [50000, 10]
         # goodness_per_label.argmax(1) [50000, 1] 
         return goodness_per_label.argmax(1)
+
     
     
 hyperparams= [16, 1728, 3, 0.005, 20, 'vehicleimage', 0.001, 'C1']
@@ -373,6 +372,49 @@ class FFNet_deep(torch.nn.Module):
         self.layers = []
         for d in range(len(dims) - 1):
             self.layers += [Layer(dims[d], dims[d + 1]).to(DEVICE)]
+
+    
+    
+hyperparams= [16, 1728, 3, 0.005, 20, 'vehicleimage', 0.001, 'C1']
+
+
+class SNN(nn.Module):
+    def __init__(self, layersize, batchsize):
+        """
+        layersize is the size of each layer like [24*24*3, 500, 3]
+        stepsize is the batchsize.
+        """
+        super(SNN, self).__init__()
+        self.layers = nn.ModuleList()
+        self.layers_size = layersize
+        self.lastlayer_size = layersize[-1]
+        self.len = len(self.layers_size) - 1
+        self.error = None
+        self.stepsize = batchsize
+        self.time_windows = 20
+
+        for i in range(self.len):
+            self.layers.append(FC_block(self.stepsize,self.time_windows, self.lastlayer_size, self.layers_size[i], self.layers_size[i + 1]))
+
+    def forward(self, input):
+        for step in range(self.stepsize):
+
+            x = input > torch.rand(input.size()).to(DEVICE)
+
+            x = x.float().to(DEVICE)
+            x = x.view(self.stepsize, -1)
+            y = x
+            for i in range(self.len):
+                y = self.layers[i](y)
+#        print('x',x)
+#        print('x.shape',x.shape)
+        outputs = self.layers[-1].sumspike / self.time_windows 
+
+        return outputs
+
+
+    
+
 
     def predict(self, x):
         goodness_per_label = []
