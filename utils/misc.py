@@ -1,13 +1,3 @@
-'''
-Author: linjunnuo limchvnno@gmail.com
-Date: 2023-07-24 13:22:11
-LastEditors: linjunnuo limchvnno@gmail.com
-LastEditTime: 2023-07-28 08:43:26
-FilePath: /pytorch_forward_forward/utils/misc.py
-Description: 
-
-Copyright (c) 2023 by linjunnuo , All Rights Reserved. 
-'''
 from pathlib import Path
 from torch.utils.data import DataLoader, Dataset
 import matplotlib.pyplot as plt
@@ -131,7 +121,35 @@ def visualize_negative(data, name='', idx=0):
     plt.imshow(reshaped, cmap="gray")
     plt.show()
 
-    
+def split_non_iid_data(dataset, num_subsets):
+    """
+    Split a dataset into Non-IID subsets.
+
+    Args:
+    - dataset: The PyTorch dataset to be split.
+    - num_subsets: The number of Non-IID subsets to create.
+
+    Returns:
+    - A list of datasets, each containing a Non-IID subset.
+    """
+    num_samples = len(dataset)
+    samples_per_subset = num_samples // num_subsets
+
+
+    non_iid_subsets = []
+    start_idx = 0
+
+    for i in range(num_subsets):
+        end_idx = start_idx + samples_per_subset
+        subset = torch.utils.data.Subset(dataset, list(range(start_idx, end_idx)))
+        non_iid_subsets.append(subset)
+
+        start_idx = end_idx
+
+    return non_iid_subsets
+
+
+
 if __name__ == "__main__":
     import numpy as np
     from scipy.ndimage import convolve

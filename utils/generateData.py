@@ -13,15 +13,16 @@ def prepare_data():
     
     transform = tortra.Compose([
         tortra.ToTensor(),
-        tortra.Normalize((0.1307,), (0.3081,))
+        tortra.Normalize((0.1307,), (0.3081,)),
+        
         ])
 
     # Load the train MNIST dataset
-    train_mnist_dataset = torchvision.datasets.MNIST(root="./data", train=True, transform=transform,
+    train_mnist_dataset = torchvision.datasets.MNIST(root="/home/datasets/SNN/", train=True, transform=transform,
                                                      download=False)
     n_train_samples = len(train_mnist_dataset)
     # Load the test MNIST dataset
-    test_mnist_dataset = torchvision.datasets.MNIST(root="./data", train=False, transform=transform,
+    test_mnist_dataset = torchvision.datasets.MNIST(root="/home/datasets/SNN/", train=False, transform=transform,
                                                     download=False)
 
     if not os.path.exists("transformed_dataset.pt"):
@@ -35,6 +36,10 @@ def prepare_data():
 
         # Save the transformed images to a folder
         torch.save(transformed_dataset, './data/transformed_dataset.pt')
+
+
+
+
 
 
 def create_mask(shape, iterations: int = 10):
@@ -114,3 +119,6 @@ def create_negative_batch(images: Tensor):
         idx1, idx2 = np.random.randint(batch_size, size=2)
         neg_imgs.append(create_negative_image(images[idx1].squeeze(), images[idx2].squeeze()))
     return torch.unsqueeze(torch.stack(neg_imgs), dim=1)
+
+if __name__ == "__main__":
+    prepare_data()
