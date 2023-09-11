@@ -67,7 +67,7 @@ def FF_experiment():
 
     print('test acc of FF:', sum(acc_list)/len(acc_list))
 
-    writer.add_scalar('FFAccuracy/test', sum(acc_list)/len(acc_list))
+    # writer.add_scalar('FFAccuracy/test', sum(acc_list)/len(acc_list))
 
     # print('test acc of FF:', net.predict(x_te).eq(y_te).float().mean().item())
 
@@ -131,9 +131,9 @@ if __name__ == "__main__":
     torch.manual_seed(1234)
 
 
-    # FF_experiment()
+    FF_experiment()
 
     # BP
-    BP_experiment()
+    # BP_experiment()
 
     print(f"Done")

@@ -162,13 +162,13 @@ def FFAlexNetHybrid_experiment():
             tortra.Normalize((0.1307,), (0.3081,))
             ])
 
-    pos_dataset = MNIST(root='./data', download=False, transform=transform, train=True)
+    pos_dataset = MNIST(root='/home/datasets/SNN', download=False, transform=transform, train=True)
     pos_dataloader = DataLoader(pos_dataset, batch_size=config['batchsize'], shuffle=True)
     neg_dataset = torch.load('./data/transformed_dataset.pt')
     neg_dataloader = DataLoader(neg_dataset, batch_size=config['batchsize'], shuffle=True, num_workers=4)
     
     # Load the test images
-    test_dataset = MNIST(root='./data', train=False, download=False, transform=transform)
+    test_dataset = MNIST(root='/home/datasets/SNN', train=False, download=False, transform=transform)
     # Create the data loader
     test_dataloader = DataLoader(test_dataset, batch_size=config['batchsize'], shuffle=True, num_workers=4)
     
@@ -254,7 +254,6 @@ if __name__ == "__main__":
 
     # FFAlexNet_experiment()
 
-    ### BP
     #BP_experiment()
     FFAlexNetHybrid_experiment()
     print(f"Done")

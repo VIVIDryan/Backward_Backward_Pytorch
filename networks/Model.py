@@ -268,37 +268,37 @@ class SNN(nn.Module):
             h_pos, h_neg = layer.train(h_pos, h_neg)
         return h_pos, h_neg
 
-class FFNet_deep(torch.nn.Module):
-    '''
-    description: 深层模型
-    param {*} self
-    param {*} x
-    return {*}
-    '''
-    def __init__(self, dims):
-        super().__init__()
-        self.layers = []
-        for d in range(len(dims) - 1):
-            self.layers += [Layer(dims[d], dims[d + 1]).to(DEVICE)]
+# class FFNet_deep(torch.nn.Module):
+#     '''
+#     description: 深层模型
+#     param {*} self
+#     param {*} x
+#     return {*}
+#     '''
+#     def __init__(self, dims):
+#         super().__init__()
+#         self.layers = []
+#         for d in range(len(dims) - 1):
+#             self.layers += [Layer(dims[d], dims[d + 1]).to(DEVICE)]
 
-    def predict(self, x):
-        goodness_per_label = []
-        for label in range(10):
-            h = x[0][label]
-            goodness = []
-            for layer in self.layers:
-                h = layer(h)
-                goodness += [h.pow(2).mean(1)]
-            goodness_per_label += [sum(goodness).unsqueeze(1)]
-        goodness_per_label = torch.cat(goodness_per_label, 1)
-        goodness_per_label_mean = (goodness_per_label + x[1]) / 2.0
-        return goodness_per_label_mean.argmax(1)
+#     def predict(self, x):
+#         goodness_per_label = []
+#         for label in range(10):
+#             h = x[0][label]
+#             goodness = []
+#             for layer in self.layers:
+#                 h = layer(h)
+#                 goodness += [h.pow(2).mean(1)]
+#             goodness_per_label += [sum(goodness).unsqueeze(1)]
+#         goodness_per_label = torch.cat(goodness_per_label, 1)
+#         goodness_per_label_mean = (goodness_per_label + x[1]) / 2.0
+#         return goodness_per_label_mean.argmax(1)
 
-    def train_in_deep(self, x_pos, x_neg):
-        h_pos, h_neg = x_pos, x_neg
-        for i, layer in enumerate(self.layers):
-            print('training layer in deep', i, '...')
-            h_pos, h_neg = layer.train(h_pos, h_neg)
+#     def train_in_deep(self, x_pos, x_neg):
+#         h_pos, h_neg = x_pos, x_neg
+#         for i, layer in enumerate(self.layers):
+#             print('training layer in deep', i, '...')
+#             h_pos, h_neg = layer.train(h_pos, h_neg)
 
 class BPNet_split(torch.nn.Module):
     '''
@@ -314,6 +314,7 @@ class BPNet_split(torch.nn.Module):
             nn.ReLU()
         )
         self.deep_model = nn.Sequential()
+        self.dims = dims
         for d in range(1, len(dims) - 1):
             self.deep_model.append(nn.Linear(dims[d], dims[d + 1]))
             self.deep_model.append(nn.ReLU())
@@ -334,13 +335,15 @@ class FFNet_shallow(torch.nn.Module):
     def __init__(self, dims):
         super().__init__()
         self.layers = []
+        self.dims = dims
         for d in range(len(dims) - 1):
             self.layers += [Layer(dims[d], dims[d + 1]).to(DEVICE)]
 
 
     def predict(self, x):
         goodness_per_label = []
-        _out = torch.zeros(10, x.shape[0], 500).to(DEVICE)
+        # _out = torch.zeros(10, x.shape[0], 500).to(DEVICE)
+        _out = torch.zeros(10, x.shape[0], self.dims[-1]).to(DEVICE)
         for label in range(10):
             h = overlay_y_on_x(x, label)
             goodness = []
@@ -356,8 +359,8 @@ class FFNet_shallow(torch.nn.Module):
     def train_in_shallow(self, x_pos, x_neg):
         h_pos, h_neg = x_pos, x_neg
         for i, layer in enumerate(self.layers):
-            print('training layer in shallow', i, '...')
-            h_pos, h_neg = layer.train(h_pos, h_neg)
+            # print('training layer in shallow', i, '...')
+            h_pos, h_neg = layer.ftrain(h_pos, h_neg)
         return h_pos, h_neg
 
 class FFNet_deep(torch.nn.Module):
@@ -372,7 +375,23 @@ class FFNet_deep(torch.nn.Module):
         self.layers = []
         for d in range(len(dims) - 1):
             self.layers += [Layer(dims[d], dims[d + 1]).to(DEVICE)]
-
+    def predict(self, x):
+        goodness_per_label = []
+        for label in range(10):
+            h = x[0][label]
+            goodness = []
+            for layer in self.layers:
+                h = layer(h)
+                goodness += [h.pow(2).mean(1)]
+            goodness_per_label += [sum(goodness).unsqueeze(1)]
+        goodness_per_label = torch.cat(goodness_per_label, 1)
+        goodness_per_label_mean = (goodness_per_label + x[1]) / 2.0
+        return goodness_per_label_mean.argmax(1)
+    def train_in_deep(self, x_pos, x_neg):
+        h_pos, h_neg = x_pos, x_neg
+        for i, layer in enumerate(self.layers):
+            # print('training layer in deep', i, '...')
+            h_pos, h_neg = layer.ftrain(h_pos, h_neg)
     
     
 hyperparams= [16, 1728, 3, 0.005, 20, 'vehicleimage', 0.001, 'C1']
