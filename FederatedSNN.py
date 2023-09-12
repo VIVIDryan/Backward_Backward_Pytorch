@@ -24,8 +24,12 @@ config = {
     'lr': 0.01,
     'epoch': 10,
     'globalepoch': 200,
-    'batchsize': 512
+    'batchsize': 1024
 }
+
+
+def FederatedCNN_experiment(num_of_clients):
+    pass
 
 
 
@@ -42,7 +46,7 @@ def FederatedSNN_experiment(num_of_clients):
     
     server_model = SNN([28*28*1, 500, 10],config['batchsize']).to(DEVICE) 
     client_models = [copy.copy(server_model) for _ in range(num_of_clients)]
-    client_optims = [torch.optim.SGD(client_models[i].parameters(), lr = config['lr']) for i in range(len(client_models))]
+    client_optims = [torch.optim.Adam(client_models[i].parameters(), lr = config['lr'], weight_decay=0.01) for i in range(len(client_models))]
     loss = nn.CrossEntropyLoss()
     
     
@@ -87,11 +91,15 @@ def FederatedSNN_experiment(num_of_clients):
         client_models, server_model = federated.FedAvg(client_models, server_model)
         
         test_acc = []
+        testmetrics = misc.Accumulator(2) 
         for data in test_loader:
             
             x, y = data
             x, y = x.to(DEVICE), y.to(DEVICE)
-            acc = misc.accuracy(server_model(x), y)
+            with torch.no_grad():
+                testmetrics.add(misc.accuracy(server_model(x), y), x.shape[0]) 
+            
+            acc = metric[0] / metric[1] 
             test_acc.append(acc)
         
         avg_testacc = sum(test_acc)/len(test_acc)    

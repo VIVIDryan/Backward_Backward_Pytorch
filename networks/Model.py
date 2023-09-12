@@ -16,7 +16,7 @@ from networks.block import FC_block
 
 
 DEVICE = torch.device('cuda:2')
-writer = SummaryWriter(comment=f"FFLayer")
+# writer = SummaryWriter(comment=f"FFLayer")
 
 class Layer(nn.Linear):
     def __init__(self, in_features, out_features,
