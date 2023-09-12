@@ -1,23 +1,3 @@
-'''
-Author: linjunnuo limchvnno@gmail.com
-Date: 2023-07-23 17:15:37
-LastEditors: linjunnuo limchvnno@gmail.com
-LastEditTime: 2023-07-28 11:01:23
-FilePath: /pytorch_forward_forward/dataloaders/dataset.py
-Description: 
-
-Copyright (c) 2023 by linjunnuo , All Rights Reserved. 
-'''
-'''
-Author: linjunnuo limchvnno@gmail.com
-Date: 2023-07-23 17:15:37
-LastEditors: linjunnuo limchvnno@gmail.com
-LastEditTime: 2023-07-24 13:55:11
-FilePath: /pytorch_forward_forward/dataloaders/dataset.py
-Description: 
-
-Copyright (c) 2023 by linjunnuo , All Rights Reserved. 
-'''
 from torchvision import datasets
 from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, ToTensor, Normalize, Lambda, transforms
@@ -137,7 +117,7 @@ def MSD_loaders(path='/home/datasets/SNN/MSD/', batch_size=64, num_subsets=1):
 
 def MNIST_loaders(batch_size=50000, num_subsets=1, transform=None):
     '''
-    num_subsets：训练集划分数量
+    num_subsets: 训练集划分数量
     description: 输入batch_size和需要划分的数量
     return {*}
     ''' 
@@ -145,7 +125,8 @@ def MNIST_loaders(batch_size=50000, num_subsets=1, transform=None):
         transform = Compose([
             ToTensor(),
             Normalize((0.1307,), (0.3081,)),
-            Lambda(lambda x: torch.flatten(x))])
+            Lambda(lambda x: torch.flatten(x))
+            ])
 
     train_dataset = MNIST('/home/datasets/SNN/', train=True, download=False, transform=transform)
     test_dataset = MNIST('/home/datasets/SNN/', train=False, download=False, transform=transform)
@@ -169,6 +150,9 @@ def MNIST_loaders(batch_size=50000, num_subsets=1, transform=None):
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
 
     return train_loaders, test_loader
+
+
+
 
 def debug_loaders(train_batch_size=50000, test_batch_size=10000):
 
