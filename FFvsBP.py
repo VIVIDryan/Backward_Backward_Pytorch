@@ -67,9 +67,46 @@ def FF_experiment():
 
     print('test acc of FF:', sum(acc_list)/len(acc_list))
 
-    # writer.add_scalar('FFAccuracy/test', sum(acc_list)/len(acc_list))
 
-    # print('test acc of FF:', net.predict(x_te).eq(y_te).float().mean().item())
+def FF_experiment_withNN():
+    train_loader, test_loader = MNIST_loaders()
+
+    net = FFNet([784, 500, 500]).to(DEVICE)
+
+    FF_start_time = time.time()
+    train_acc = []
+    for i, (x, y) in enumerate(train_loader[0]):
+
+        x, y = x.to(DEVICE), y.to(DEVICE)
+        
+        rnd = torch.randperm(x.size(0))
+        x_neg = misc.overlay_y_on_x(x, y[rnd])
+
+        # for data, name in zip([x, x_pos, x_neg], ['orig', 'pos', 'neg']):
+        #     visualize_sample(data, name)
+
+        net.ftrain(x_pos, x_neg)
+        train_acc.append(net.predict(x).eq(y).float().mean().item())
+        break
+
+    print(f'Epoch {i} train acc of FF:', sum(train_acc)/len(train_acc))
+    FF_end_time = time.time()
+    journey = FF_end_time - FF_start_time
+    writer.add_scalar('FFAccuracy/train', sum(train_acc)/len(train_acc))
+    writer.add_scalar('Time/FFtime', journey)
+
+    acc_list = []
+    for x_te, y_te in test_loader:
+
+        x_te, y_te = x_te.to(DEVICE), y_te.to(DEVICE)
+        acc = net.predict(x_te).eq(y_te).float().mean().item()
+        acc_list.append(acc)
+        break
+
+    print('test acc of FF:', sum(acc_list)/len(acc_list))  
+
+
+
 
 
 def BP_experiment():

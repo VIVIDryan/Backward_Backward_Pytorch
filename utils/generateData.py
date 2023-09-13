@@ -6,6 +6,7 @@ from torch import tensor, Tensor
 import torchvision
 from tqdm import tqdm
 import os
+from torchvision.transforms import Lambda 
 from torchvision import transforms as tortra
 
 def prepare_data():
@@ -14,7 +15,7 @@ def prepare_data():
     transform = tortra.Compose([
         tortra.ToTensor(),
         tortra.Normalize((0.1307,), (0.3081,)),
-        
+        # Lambda(lambda x: torch.flatten(x)), 
         ])
 
     # Load the train MNIST dataset
@@ -25,17 +26,21 @@ def prepare_data():
     test_mnist_dataset = torchvision.datasets.MNIST(root="/home/datasets/SNN/", train=False, transform=transform,
                                                     download=False)
 
-    if not os.path.exists("transformed_dataset.pt"):
+    if not os.path.exists("transformed_flattendataset.pt"):
         random_pairs = np.random.randint(n_train_samples, size=[n_train_samples, 2])
         random_pairs = [(row[0], row[1]) for row in random_pairs]
 
         # Transform the data
+        print("Transforming Negative Data:~~~~~")
         transformed_dataset = [
             create_negative_image(train_mnist_dataset[pair[0]][0].squeeze(), train_mnist_dataset[pair[1]][0].squeeze())
             for pair in tqdm(random_pairs)]
 
         # Save the transformed images to a folder
-        torch.save(transformed_dataset, './data/transformed_dataset.pt')
+        save_path =  './data/transformed_flattendataset.pt'
+        print("Saving Negative Data to:{}".format(save_path))
+
+        torch.save(transformed_dataset, save_path)
 
 
 

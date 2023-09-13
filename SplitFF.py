@@ -166,7 +166,7 @@ def SplitFF_multi_clients_experiment(num_of_clients):
 
 if __name__ == "__main__":
     torch.manual_seed(1234)
-    # SplitFF_multi_clients_experiment(1)
+    SplitFF_multi_clients_experiment(1)
     splitFF_experiment()
     # splitFF_with_new_neg()
     print("Done!")
