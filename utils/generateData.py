@@ -9,7 +9,7 @@ import os
 from torchvision.transforms import Lambda 
 from torchvision import transforms as tortra
 
-def prepare_data():
+def prepare_data(if_flatten = True):
     # Define the transform function
     
     transform = tortra.Compose([
@@ -35,7 +35,13 @@ def prepare_data():
         transformed_dataset = [
             create_negative_image(train_mnist_dataset[pair[0]][0].squeeze(), train_mnist_dataset[pair[1]][0].squeeze())
             for pair in tqdm(random_pairs)]
-
+        
+        flatten_dataset = []
+        if if_flatten:
+            flatten_trans = Lambda(lambda x: torch.flatten(x))
+            flatten_dataset = [flatten_trans(i) for i in transformed_dataset]
+            transformed_dataset = flatten_dataset
+        
         # Save the transformed images to a folder
         save_path =  './data/transformed_flattendataset.pt'
         print("Saving Negative Data to:{}".format(save_path))

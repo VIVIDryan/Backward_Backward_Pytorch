@@ -44,7 +44,7 @@ def FederatedSNN_experiment(num_of_clients):
     train_loader, test_loader = MNIST_loaders(batch_size=config['batchsize'], transform=transform, num_subsets=num_of_clients)
     client_step = [iter(_) for _ in train_loader]
     
-    server_model = SNN([28*28*1, 500, 10],config['batchsize']).to(DEVICE) 
+    server_model = SNN([28*28*1, 500, 10],config['batchsize']).cuda(DEVICE) 
     client_models = [copy.copy(server_model) for _ in range(num_of_clients)]
     client_optims = [torch.optim.Adam(client_models[i].parameters(), lr = config['lr'], weight_decay=0.01) for i in range(len(client_models))]
     loss = nn.CrossEntropyLoss()
