@@ -155,7 +155,7 @@ class FC_block(nn.Module):
             self.spike = act_fun(self.v)
             self.sumspike = self.sumspike + self.spike
         else:
-            
+            ###### Here ########
 
             self.v = self.v * (1 - self.spike) + self.spike * self.c
             self.u = self.u + self.spike * self.d
@@ -179,6 +179,9 @@ class FC_block(nn.Module):
         self.mem_update(self.fc, self.input)
 
         self.time_counter += 1
+        ## time_counter 来计算时间窗的
+        
+        
         if self.time_counter == self.time_window:
             self.time_counter = 0
 
