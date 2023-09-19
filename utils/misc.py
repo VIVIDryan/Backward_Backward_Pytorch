@@ -5,6 +5,9 @@ import torchaudio
 import torch
 from collections.abc import Iterable
 
+import numpy as np
+
+
 def overlay_y_on_x(x, y):
     """Replace the first 10 pixels of data [x] with one-hot-encoded label [y]
     首先，函数创建了输入数据 x 的一个副本 x_,以确保在不改变原始数据的情况下进行修改。
@@ -74,7 +77,14 @@ class Accumulator:
     def __getitem__(self, idx):
         return self.data[idx]
 
-
+def snn_accuracy(data, targets, net, batchsize):
+    """
+    return the acc of a batch in snn
+    """
+    output, _ = net(data.view(batchsize, -1 ))
+    _, idx = output.sum(dim=0).max(1)
+    acc = np.mean((targets == idx).detach().cpu().numpy())
+    return acc
 
 def accuracy(y_hat, y):  # @save
 

@@ -60,8 +60,7 @@ def train_printer(
 # Define Network
 class SNNNet(nn.Module):
     def __init__(self):
-        super().__init__()
-
+        super().__init__()       
         # Initialize layers
         self.fc1 = nn.Linear(num_inputs, num_hidden)
         self.lif1 = snn.Leaky(beta=beta)

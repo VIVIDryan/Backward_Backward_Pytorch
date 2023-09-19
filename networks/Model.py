@@ -8,7 +8,8 @@ from torchvision.transforms import Compose, ToTensor, Normalize, Lambda
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from collections import OrderedDict
-
+import snntorch as snn
+import numpy as np
 from tqdm import trange, tqdm
 
 from utils.misc import overlay_y_on_x, Conv_overlay_y_on_x
@@ -397,7 +398,10 @@ class FFNet_deep(torch.nn.Module):
 hyperparams= [16, 1728, 3, 0.005, 20, 'vehicleimage', 0.001, 'C1']
 
 
-class SNN(nn.Module):
+class SNNv1(nn.Module):
+    """
+    SNN v1 implement from LFL
+    """
     def __init__(self, layersize, batchsize):
         """
         layersize is the size of each layer like [24*24*3, 500, 3]
@@ -453,3 +457,41 @@ class SNN(nn.Module):
         for i, layer in enumerate(self.layers):
             print('training layer in deep', i, '...')
             h_pos, h_neg = layer.train(h_pos, h_neg)
+            
+            
+            
+class SNNv2(nn.Module):
+    """
+    SNN v2 implement from snntorch 
+    """
+    def __init__(self, layersize):
+        super().__init__()       
+        # Initialize layers
+        self.layersize = layersize
+        self.fc1 = nn.Linear(self.layersize[0], self.layersize[1])
+        self.beta = 0.95
+        self.num_steps = 25
+        
+        self.lif1 = snn.Leaky(beta=self.beta)
+        self.fc2 = nn.Linear(self.layersize[1], self.layersize[2])
+        self.lif2 = snn.Leaky(beta=self.beta)
+
+    def forward(self, x):
+
+        # Initialize hidden states at t=0
+        mem1 = self.lif1.init_leaky()
+        mem2 = self.lif2.init_leaky()
+        
+        # Record the final layer
+        spk2_rec = []
+        mem2_rec = []
+
+        for step in range(self.num_steps):
+            cur1 = self.fc1(x)
+            spk1, mem1 = self.lif1(cur1, mem1)
+            cur2 = self.fc2(spk1)
+            spk2, mem2 = self.lif2(cur2, mem2)
+            spk2_rec.append(spk2)
+            mem2_rec.append(mem2)
+
+        return torch.stack(spk2_rec, dim=0), torch.stack(mem2_rec, dim=0)
