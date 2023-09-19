@@ -16,7 +16,7 @@ from networks.block import FC_block
 
 
 DEVICE = torch.device('cuda:2')
-# writer = SummaryWriter(comment=f"FFLayer")
+writer = SummaryWriter(comment=f"FFLayer")
 
 class Layer(nn.Linear):
     def __init__(self, in_features, out_features,
@@ -25,7 +25,7 @@ class Layer(nn.Linear):
         self.relu = torch.nn.ReLU()
         self.opt = Adam(self.parameters(), lr=0.03)
         self.threshold = 2.0
-        self.num_epochs = 10
+        self.num_epochs = 1000
 
     def forward(self, x):
         x_direction = x / (x.norm(2, 1, keepdim=True) + 1e-4)

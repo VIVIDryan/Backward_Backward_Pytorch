@@ -6,7 +6,7 @@ from torch.optim import Adam
 from torchvision.datasets import MNIST
 import time
 from torch.utils.tensorboard import SummaryWriter
-
+from torchvision import transforms as tortra
 
 from networks.Model import FFNet, BPNet
 from dataloaders.dataset import MNIST_loaders, debug_loaders
@@ -69,25 +69,41 @@ def FF_experiment():
 
 
 def FF_experiment_withNN():
-    train_loader, test_loader = MNIST_loaders()
+    
+    from torch.utils.data import DataLoader
+    
+    batchsize = 50000
+    epoch = 100
+    transformss = tortra.Compose([
+            tortra.ToTensor(),
+            tortra.Normalize((0.1307,), (0.3081,)),
+            tortra.Lambda(lambda x: torch.flatten(x))
+            ])
+    pos_train_loader, test_loader = MNIST_loaders(batch_size=batchsize ,transform=transformss)
 
     net = FFNet([784, 500, 500]).to(DEVICE)
-
+    neg_dataset = torch.load('./data/transformed_flattendataset.pt')
+    neg_train_loader = DataLoader(neg_dataset, batch_size=batchsize)
+    
+    
+    
     FF_start_time = time.time()
-    train_acc = []
-    for i, (x, y) in enumerate(train_loader[0]):
+    
+    for e in range(epoch):
+        train_acc = []
+        for i, (pos, x_neg) in enumerate(zip(pos_train_loader[0], neg_train_loader)):
+            x_pos, y = pos
+            x_pos, y = x_pos.to(DEVICE), y.to(DEVICE)
+            x_neg = x_neg.to(DEVICE)
+            
+            # for data, name in zip([x, x_pos, x_neg], ['orig', 'pos', 'neg']):
+            #     visualize_sample(data, name)
 
-        x, y = x.to(DEVICE), y.to(DEVICE)
-        
-        rnd = torch.randperm(x.size(0))
-        x_neg = misc.overlay_y_on_x(x, y[rnd])
-
-        # for data, name in zip([x, x_pos, x_neg], ['orig', 'pos', 'neg']):
-        #     visualize_sample(data, name)
-
-        net.ftrain(x_pos, x_neg)
-        train_acc.append(net.predict(x).eq(y).float().mean().item())
-        break
+            net.ftrain(x_pos, x_neg)
+            ac = net.predict(x_pos).eq(y).float().mean().item()
+            train_acc.append(ac)
+            print(ac)
+            break
 
     print(f'Epoch {i} train acc of FF:', sum(train_acc)/len(train_acc))
     FF_end_time = time.time()
@@ -168,9 +184,9 @@ if __name__ == "__main__":
     torch.manual_seed(1234)
 
 
-    FF_experiment()
+    # FF_experiment()
 
     # BP
     # BP_experiment()
-
+    FF_experiment_withNN()
     print(f"Done")
