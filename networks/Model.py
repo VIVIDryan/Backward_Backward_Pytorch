@@ -16,7 +16,7 @@ from utils.misc import overlay_y_on_x, Conv_overlay_y_on_x
 from networks.block import FC_block
 
 
-DEVICE = torch.device('cuda:2')
+DEVICE = torch.device('cuda:1')
 writer = SummaryWriter(comment=f"FFLayer")
 
 class Layer(nn.Linear):

@@ -19,7 +19,7 @@ torch.backends.cudnn.enable =True
 torch.backends.cudnn.benchmark = True
 
 
-DEVICE = torch.device('cuda:2')
+DEVICE = torch.device('cuda:1')
 config = {
     'lr': 5e-4,
     'epoch': 3,
@@ -154,7 +154,7 @@ def FederatedSNNv2_experiment(num_of_clients):
     plt.grid(True)
 
     plt.tight_layout()  # 确保子图不重叠
-    plt.savefig('imgs/FederatedSNN/FederatedSNN_G_{0}_L_{1}_lr_{2}.png'.format(config['globalepoch'], config['epoch'], config['lr'])) 
+    plt.savefig('figures/FederatedSNN/FederatedSNN_G_{0}_L_{1}_lr_{2}_Client_{3}.png'.format(config['globalepoch'], config['epoch'], config['lr'], num_of_clients)) 
 
 
 def FederatedSNN_experiment(num_of_clients):
@@ -237,5 +237,5 @@ def FederatedSNN_experiment(num_of_clients):
 if __name__ == "__main__":
     
     
-    writer = SummaryWriter(comment=f"LR_{config['lr']}_EPOCH_{config['epoch']}_FederatedSNNv2_{3}")
-    FederatedSNNv2_experiment(3) 
+    writer = SummaryWriter(comment=f"LR_{config['lr']}_EPOCH_{config['epoch']}_FederatedSNNv2_{50}")
+    FederatedSNNv2_experiment(50) 
