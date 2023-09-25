@@ -158,6 +158,15 @@ def split_non_iid_data(dataset, num_subsets):
 
     return non_iid_subsets
 
+def plot_loss(loss):
+    # plot the loss over epochs
+    fig = plt.figure()
+    plt.plot(list(range(len(loss))), loss)
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.title("Loss Plot")
+    plt.savefig("Loss Plot.png")
+    plt.show()
 
 
 if __name__ == "__main__":

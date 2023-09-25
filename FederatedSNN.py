@@ -5,7 +5,9 @@ from tqdm import tqdm
 from torch.optim import Adam
 from torchvision.datasets import MNIST
 import time
+import logging
 import copy
+import sys
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms as tortra
 import numpy as np
@@ -17,6 +19,14 @@ from utils import federated
 
 torch.backends.cudnn.enable =True
 torch.backends.cudnn.benchmark = True
+
+logging.basicConfig(
+    level=logging.WARN,
+    stream=sys.stdout,
+    format="%(asctime)s (%(module)s:%(lineno)d) %(levelname)s: %(message)s",
+)
+
+
 
 
 DEVICE = torch.device('cuda:1')
@@ -67,7 +77,7 @@ def FederatedSNNv2_experiment(num_of_clients):
     
     
     for epoch in range(config['globalepoch']):
-        print(f"Global epoch {epoch+1}")
+        logging.warning(f"Global epoch {epoch+1}")
         for i , iterator in enumerate(train_loader):
             loss_hist = []
             train_loss_hist = []      # 用于存储训练损失
@@ -116,7 +126,7 @@ def FederatedSNNv2_experiment(num_of_clients):
                 
             local_avg_acc = sum(train_acc_list)/len(train_acc_list)
             local_avg_acc_lists[i].append(local_avg_acc)
-            print(f"client {i}: trainacc {local_avg_acc}\n")
+            logging.warning(f"client {i}: trainacc {local_avg_acc}\n")
                              
 
         
@@ -133,7 +143,7 @@ def FederatedSNNv2_experiment(num_of_clients):
             test_acc = testmetrics[0]/testmetrics[1]
         global_test_acc_list.append(test_acc)    
         writer.add_scalar('FederatedSNN/globaltestacc', test_acc, epoch) 
-        print(f"GLobal epoch: test acc {test_acc}\n")
+        logging.warning(f"GLobal epoch: test acc {test_acc}\n")
 
     plt.figure(figsize=(12, 6))
 
@@ -237,5 +247,5 @@ def FederatedSNN_experiment(num_of_clients):
 if __name__ == "__main__":
     
     
-    writer = SummaryWriter(comment=f"LR_{config['lr']}_EPOCH_{config['epoch']}_FederatedSNNv2_{50}")
-    FederatedSNNv2_experiment(50) 
+    writer = SummaryWriter(comment=f"LR_{config['lr']}_EPOCH_{config['epoch']}_FederatedSNNv2_{5}")
+    FederatedSNNv2_experiment(5) 

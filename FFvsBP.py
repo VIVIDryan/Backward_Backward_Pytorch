@@ -8,11 +8,15 @@ import time
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms as tortra
 
-from networks.Model import FFNet, BPNet
+from networks.Model import FFNet, BPNet, FFNet_Unsupervised
 from dataloaders.dataset import MNIST_loaders, debug_loaders
 from utils import misc
 
-DEVICE = torch.device('cuda:2')
+import sys
+import logging
+
+
+DEVICE = torch.device('cuda:1')
 config = {
     'lr': 0.001,
     'epoch': 50,
@@ -20,6 +24,13 @@ config = {
 }
 writer = SummaryWriter(
     comment=f"LR_{config['lr']}_EPOCH_{config['epoch']}_rewriteFF")
+
+logging.basicConfig(
+    level=logging.INFO,
+    stream=sys.stdout,
+    format="%(asctime)s (%(module)s:%(lineno)d) %(levelname)s: %(message)s",
+)
+
 
 
 def visualize_sample(data, name='', idx=0):
@@ -49,9 +60,13 @@ def FF_experiment():
 
         net.ftrain(x_pos, x_neg)
         train_acc.append(net.predict(x).eq(y).float().mean().item())
+        
         break
-
-    print(f'Epoch {i} train acc of FF:', sum(train_acc)/len(train_acc))
+    
+    logging.warning(f'train acc of FF:{sum(train_acc)/len(train_acc)}')  
+    
+         
+    
     FF_end_time = time.time()
     journey = FF_end_time - FF_start_time
     writer.add_scalar('FFAccuracy/train', sum(train_acc)/len(train_acc))
@@ -65,65 +80,39 @@ def FF_experiment():
         acc_list.append(acc)
         break
 
-    print('test acc of FF:', sum(acc_list)/len(acc_list))
+    logging.warning(f'test acc of FF: {sum(acc_list)/len(acc_list)}')
 
 
 def FF_experiment_withNN():
+    """
+    Forward Experiment with unsupervised approach
+    """
     
     from torch.utils.data import DataLoader
     
     batchsize = 50000
-    epoch = 100
+    epochs = 50
     transformss = tortra.Compose([
             tortra.ToTensor(),
             tortra.Normalize((0.1307,), (0.3081,)),
-            tortra.Lambda(lambda x: torch.flatten(x))
             ])
     pos_train_loader, test_loader = MNIST_loaders(batch_size=batchsize ,transform=transformss)
-
-    net = FFNet([784, 500, 500]).to(DEVICE)
+    pos_train_loader = pos_train_loader[0]
+    
+    
     neg_dataset = torch.load('./data/transformed_flattendataset.pt')
     neg_train_loader = DataLoader(neg_dataset, batch_size=batchsize)
     
+    unsuperviesd_ff = FFNet_Unsupervised([28*28, 500, 500, 500, 10], n_epochs = epochs, device = DEVICE)
+    
+    loss_list = unsuperviesd_ff.ftrain(pos_train_loader, neg_train_loader)
+
+    misc.plot_loss(loss_list)
+    
+    unsuperviesd_ff.evaluate(pos_train_loader, dataset_type="Train")
+    unsuperviesd_ff.evaluate(test_loader, dataset_type="Test")
     
     
-    FF_start_time = time.time()
-    
-    for e in range(epoch):
-        train_acc = []
-        for i, (pos, x_neg) in enumerate(zip(pos_train_loader[0], neg_train_loader)):
-            x_pos, y = pos
-            x_pos, y = x_pos.to(DEVICE), y.to(DEVICE)
-            x_neg = x_neg.to(DEVICE)
-            
-            # for data, name in zip([x, x_pos, x_neg], ['orig', 'pos', 'neg']):
-            #     visualize_sample(data, name)
-
-            net.ftrain(x_pos, x_neg)
-            ac = net.predict(x_pos).eq(y).float().mean().item()
-            train_acc.append(ac)
-            print(ac)
-            break
-
-    print(f'Epoch {i} train acc of FF:', sum(train_acc)/len(train_acc))
-    FF_end_time = time.time()
-    journey = FF_end_time - FF_start_time
-    writer.add_scalar('FFAccuracy/train', sum(train_acc)/len(train_acc))
-    writer.add_scalar('Time/FFtime', journey)
-
-    acc_list = []
-    for x_te, y_te in test_loader:
-
-        x_te, y_te = x_te.to(DEVICE), y_te.to(DEVICE)
-        acc = net.predict(x_te).eq(y_te).float().mean().item()
-        acc_list.append(acc)
-        break
-
-    print('test acc of FF:', sum(acc_list)/len(acc_list))  
-
-
-
-
 
 def BP_experiment():
     BPtrain_loader, BPtest_loader = MNIST_loaders(512)
@@ -185,8 +174,7 @@ if __name__ == "__main__":
 
 
     # FF_experiment()
-
+    FF_experiment_withNN()
     # BP
     # BP_experiment()
-    FF_experiment_withNN()
     print(f"Done")
