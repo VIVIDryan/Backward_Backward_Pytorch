@@ -198,4 +198,5 @@ def debug_loaders(train_batch_size=50000, test_batch_size=10000):
     return train_loader, test_loader
 
 if __name__ == '__main__':
-    train, test = MNIST_loaders(batch_size=50000, num_subsets=1, transform=None, fixed_number = True, amount = 20000)
+    train, test = MNIST_loaders(batch_size=10000, num_subsets=1, transform=None, fixed_number = True, amount = 20000)
+    print(len(test))
