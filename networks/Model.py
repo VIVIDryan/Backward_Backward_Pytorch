@@ -1,3 +1,5 @@
+import os
+
 from typing import Union
 import torch
 import torch.nn as nn
@@ -8,15 +10,43 @@ from torchvision.transforms import Compose, ToTensor, Normalize, Lambda
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from collections import OrderedDict
-
+import snntorch as snn
+import numpy as np
 from tqdm import trange, tqdm
+from sklearn.metrics import accuracy_score
+
 
 from utils.misc import overlay_y_on_x, Conv_overlay_y_on_x
 from networks.block import FC_block
 
 
-DEVICE = torch.device('cuda:2')
+DEVICE = torch.device('cuda:1')
 writer = SummaryWriter(comment=f"FFLayer")
+
+def goodness_score(pos_acts, neg_acts, threshold=2):
+    """
+    Compute the goodness score for a given set of positive and negative activations.
+
+    Parameters:
+
+    pos_acts (torch.Tensor): Numpy array of positive activations.
+    neg_acts (torch.Tensor): Numpy array of negative activations.
+    threshold (int, optional): Threshold value used to compute the score. Default is 2.
+
+    Returns:
+
+    goodness (torch.Tensor): Goodness score computed as the sum of positive and negative goodness values. Note that this
+    score is actually the quantity that is optimized and not the goodness itself. The goodness itself is the same
+    quantity but without the threshold subtraction
+    """
+
+    pos_goodness = -torch.sum(torch.pow(pos_acts, 2)) + threshold
+    neg_goodness = torch.sum(torch.pow(neg_acts, 2)) - threshold
+    return torch.add(pos_goodness, neg_goodness)
+
+def get_metrics(preds, labels):
+    acc = accuracy_score(labels, preds)
+    return dict(accuracy_score=acc)
 
 class Layer(nn.Linear):
     def __init__(self, in_features, out_features,
@@ -54,6 +84,35 @@ class Layer(nn.Linear):
 
 
 
+class FFLayer(nn.Linear):
+    """
+    Unsupervised Version of FFLayer 
+    """
+    
+    def __init__(self, in_features, out_features,
+                 bias=True, device=None, dtype=None):
+        super().__init__(in_features, out_features, bias, device, dtype)
+        self.relu = torch.nn.ReLU()
+        self.opt = Adam(self.parameters(), lr=0.03)
+        self.threshold = 2.0
+        self.to(device)
+        self.goodness = goodness_score
+        self.ln_layer = nn.LayerNorm(normalized_shape=[1, out_features]).to(device)
+
+    def forward(self, input):
+        input = super().forward(input)
+        input = self.ln_layer(input.detach())
+        return input
+
+    def ftrain(self, x_pos, x_neg):
+        """
+        Train the FF Linear Layer using pos_activation and neg_activation (Notes that it is not the data but the output of the ff layer).
+        """
+        self.opt.zero_grad()
+        goodness = self.goodness(x_pos, x_neg, self.threshold)
+        goodness.backward()
+        self.opt.step()
+
 class FFNet(torch.nn.Module):
 
     def __init__(self, dims):
@@ -82,7 +141,102 @@ class FFNet(torch.nn.Module):
             # print('training layer', i, '...')
             h_pos, h_neg = layer.ftrain(h_pos, h_neg)
 
+class FFNet_Unsupervised(torch.nn.Module):
 
+    def __init__(self, dims, n_epochs, device):
+        super().__init__()
+        self.device = device
+        self.layers = []
+        
+        self.n_epochs = n_epochs
+        for d in range(len(dims) - 2):
+            self.layers += [FFLayer(dims[d], dims[d + 1]).to(DEVICE)]
+        ## Only the final layer is the classifier
+        self.n_hid_to_log = len(self.layers) - 1
+        self.last_layer = nn.Linear(in_features= sum(dims[1:-2]), out_features= dims[-1])
+        self.to(device)
+        self.opt = torch.optim.Adam(self.last_layer.parameters())
+        self.loss = torch.nn.CrossEntropyLoss(reduction="mean")
+        
+    def forward(self, image: torch.Tensor):
+        image = image.to(self.device)
+        image = torch.reshape(image, (image.shape[0], 1, -1))
+        concat_output = []
+        for idx, layer in enumerate(self.layers):
+            image = layer(image)
+            if idx > len(self.layers) - self.n_hid_to_log - 1:
+                concat_output.append(image)
+        concat_output = torch.concat(concat_output, 2)
+        logits = self.last_layer(concat_output)
+        return logits.squeeze()
+
+    def ftrain(self, pos_dataloader, neg_dataloader):
+        """
+        forward train ForwardNet using the pos dataloader and neg dataloader
+        """
+        self.train()
+        outer_tqdm = tqdm(range(self.n_epochs), desc="Training FF Layers", position=0)
+        for epoch in outer_tqdm:
+            inner_tqdm = tqdm(zip(pos_dataloader, neg_dataloader), desc=f"Training FF Layers | Epoch {epoch}",
+                              leave=False, position=1)
+            for pos_data, neg_imgs in inner_tqdm:
+                
+                ## Don't need to flatten in the data transpose
+                pos_imgs, _ = pos_data
+                ### squeeze the data
+                # pos_imgs.shape  torch.Size([64, 1, 28, 28])
+                pos_imgs = torch.squeeze(pos_imgs)
+                
+                # pos_acts.shape  torch.Size([64, 1, 784])
+                pos_acts = torch.reshape(pos_imgs, (pos_imgs.shape[0], 1, -1)).to(self.device)
+                # neg_acts.shape torch.Size([64, 1, 784])
+                neg_acts = torch.reshape(neg_imgs, (neg_imgs.shape[0], 1, -1)).to(self.device)
+
+                for idx, layer in enumerate(self.layers):
+                    pos_acts = layer(pos_acts)
+                    neg_acts = layer(neg_acts)
+                    layer.ftrain(pos_acts, neg_acts)
+        
+        ## Training the last layer
+        num_examples = len(pos_dataloader)
+        outer_tqdm = tqdm(range(self.n_epochs), desc="Training Last Layer", position=0)
+        loss_list = []
+        for epoch in outer_tqdm:
+            epoch_loss = 0
+            inner_tqdm = tqdm(pos_dataloader, desc=f"Training Last Layer | Epoch {epoch}", leave=False, position=1)
+            for images, labels in inner_tqdm:
+                images = images.to(self.device)
+                labels = labels.to(self.device)
+                self.opt.zero_grad()
+                preds = self(images)
+                loss = self.loss(preds, labels)
+                epoch_loss += loss
+                loss.backward()
+                self.opt.step()
+            loss_list.append(epoch_loss / num_examples)
+            # Update progress bar with current loss
+        
+        return [l.detach().cpu().numpy() for l in loss_list]
+    
+    def evaluate(self, dataloader: DataLoader, dataset_type: str = "train"):
+        self.eval()
+        inner_tqdm = tqdm(dataloader, desc=f"Evaluating model", leave=False, position=1)
+        all_labels = []
+        all_preds = []
+        for images, labels in inner_tqdm:
+            images = images.to(self.device)
+            labels = labels.to(self.device)
+            preds = self(images)
+            preds = torch.argmax(preds, 1)
+            all_labels.append(labels.detach().cpu())
+            all_preds.append(preds.detach().cpu())
+        all_labels = torch.concat(all_labels, 0).numpy()
+        all_preds = torch.concat(all_preds, 0).numpy()
+        metrics_dict = get_metrics(all_preds, all_labels)
+        print(f"{dataset_type} dataset scores: ", "\n".join([f"{key}: {value}" for key, value in metrics_dict.items()]))
+      
+        
+        
 class BPNet(torch.nn.Module):
     def __init__(self, dims):
         super().__init__()
@@ -107,7 +261,7 @@ class BPNet(torch.nn.Module):
 
         return y
 
-class ConvLayer(nn.Conv2d):
+class FFConvLayer(nn.Conv2d):
     def __init__(self, in_channels, out_channels, kernel_size, stride= 1, padding = 0, dilation= 1, groups= 1, bias= True, padding_mode= 'zeros', device=None, dtype=None, isrelu=True, ismaxpool=True) -> None:
         super().__init__(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, padding_mode, device, dtype)
         self.relu = torch.nn.ReLU()
@@ -168,14 +322,14 @@ class FFAlexNet(torch.nn.Module):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.layers = [
-            ConvLayer(1, 32, kernel_size=3, padding=1).to(DEVICE),
-            ConvLayer(32, 64, kernel_size=3, stride=1, padding=1).to(DEVICE),
-            ConvLayer(64, 128, kernel_size=3, padding=1, ismaxpool=False).to(DEVICE),
-            ConvLayer(128, 256, kernel_size=3, padding =1, ismaxpool=False).to(DEVICE),
+            FFConvLayer(1, 32, kernel_size=3, padding=1).to(DEVICE),
+            FFConvLayer(32, 64, kernel_size=3, stride=1, padding=1).to(DEVICE),
+            FFConvLayer(64, 128, kernel_size=3, padding=1, ismaxpool=False).to(DEVICE),
+            FFConvLayer(128, 256, kernel_size=3, padding =1, ismaxpool=False).to(DEVICE),
             FlattenLayer().to(DEVICE),
-            Layer(12544, 1024).to(DEVICE),
-            Layer(1024, 512).to(DEVICE), 
-            Layer(512, 10).to(DEVICE)
+            FFLayer(12544, 1024).to(DEVICE),
+            FFLayer(1024, 512).to(DEVICE), 
+            FFLayer(512, 10).to(DEVICE)
         ]
          
     def ftrain(self, x_pos, x_neg):
@@ -241,9 +395,6 @@ class SNN(nn.Module):
         outputs = self.layers[-1].sumspike / self.time_windows 
 
         return outputs
-
-
-    
 
 
     def predict(self, x):
@@ -337,7 +488,7 @@ class FFNet_shallow(torch.nn.Module):
         self.layers = []
         self.dims = dims
         for d in range(len(dims) - 1):
-            self.layers += [Layer(dims[d], dims[d + 1]).to(DEVICE)]
+            self.layers += [FFLayer(dims[d], dims[d + 1]).to(DEVICE)]
 
 
     def predict(self, x):
@@ -374,7 +525,7 @@ class FFNet_deep(torch.nn.Module):
         super().__init__()
         self.layers = []
         for d in range(len(dims) - 1):
-            self.layers += [Layer(dims[d], dims[d + 1]).to(DEVICE)]
+            self.layers += [FFLayer(dims[d], dims[d + 1]).to(DEVICE)]
     def predict(self, x):
         goodness_per_label = []
         for label in range(10):
@@ -397,7 +548,10 @@ class FFNet_deep(torch.nn.Module):
 hyperparams= [16, 1728, 3, 0.005, 20, 'vehicleimage', 0.001, 'C1']
 
 
-class SNN(nn.Module):
+class SNNv1(nn.Module):
+    """
+    SNN v1 implement from LFL
+    """
     def __init__(self, layersize, batchsize):
         """
         layersize is the size of each layer like [24*24*3, 500, 3]
@@ -430,11 +584,7 @@ class SNN(nn.Module):
         outputs = self.layers[-1].sumspike / self.time_windows 
 
         return outputs
-
-
     
-
-
     def predict(self, x):
         goodness_per_label = []
         for label in range(10):
@@ -453,3 +603,41 @@ class SNN(nn.Module):
         for i, layer in enumerate(self.layers):
             print('training layer in deep', i, '...')
             h_pos, h_neg = layer.train(h_pos, h_neg)
+            
+            
+            
+class SNNv2(nn.Module):
+    """
+    SNN v2 implement from snntorch 
+    """
+    def __init__(self, layersize):
+        super().__init__()       
+        # Initialize layers
+        self.layersize = layersize
+        self.fc1 = nn.Linear(self.layersize[0], self.layersize[1])
+        self.beta = 0.80
+        self.num_steps = 20
+        
+        self.lif1 = snn.Leaky(beta=self.beta)
+        self.fc2 = nn.Linear(self.layersize[1], self.layersize[2])
+        self.lif2 = snn.Leaky(beta=self.beta)
+
+    def forward(self, x):
+
+        # Initialize hidden states at t=0
+        mem1 = self.lif1.init_leaky()
+        mem2 = self.lif2.init_leaky()
+        
+        # Record the final layer
+        spk2_rec = []
+        mem2_rec = []
+
+        for step in range(self.num_steps):
+            cur1 = self.fc1(x)
+            spk1, mem1 = self.lif1(cur1, mem1)
+            cur2 = self.fc2(spk1)
+            spk2, mem2 = self.lif2(cur2, mem2)
+            spk2_rec.append(spk2)
+            mem2_rec.append(mem2)
+
+        return torch.stack(spk2_rec, dim=0), torch.stack(mem2_rec, dim=0)

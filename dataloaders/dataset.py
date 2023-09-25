@@ -168,7 +168,7 @@ def MNIST_loaders(batch_size=50000, num_subsets=1, transform=None, fixed_number 
             train_loader = DataLoader(subset, batch_size=batch_size, shuffle=True, drop_last=True)
             train_loaders.append(train_loader)
 
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
+    test_loader = DataLoader(test_dataset, batch_size=10000, shuffle=True, drop_last=True)
 
     return train_loaders, test_loader
 

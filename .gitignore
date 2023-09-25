@@ -133,3 +133,4 @@ dmypy.json
 
 # local backup
 /backup
+/figures

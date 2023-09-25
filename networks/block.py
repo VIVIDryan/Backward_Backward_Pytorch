@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 
 thresh, lens, decay = (0.5, 0.5, 0.2)
-DEVICE = torch.device('cuda:2')
+DEVICE = torch.device('cuda:1')
 
 
 def make_paraset(nps):
