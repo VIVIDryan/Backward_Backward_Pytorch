@@ -43,7 +43,7 @@ def prepare_data(if_flatten = True):
             transformed_dataset = flatten_dataset
         
         # Save the transformed images to a folder
-        save_path =  './data/transformed_flattendataset.pt'
+        save_path =  '/home/datasets/SNN/transformed_flattendataset.pt'
         print("Saving Negative Data to:{}".format(save_path))
 
         torch.save(transformed_dataset, save_path)
