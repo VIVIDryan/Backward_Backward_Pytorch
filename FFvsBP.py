@@ -44,7 +44,7 @@ def visualize_sample(data, name='', idx=0):
 def FF_experiment():
     train_loader, test_loader = MNIST_loaders()
 
-    net = FFNet([784, 500, 500]).to(DEVICE)
+    net = FFNet([784, 1000, 1000]).to(DEVICE)
 
     FF_start_time = time.time()
     train_acc = []
@@ -91,7 +91,7 @@ def FF_experiment_withNN():
     from torch.utils.data import DataLoader
     
     batchsize = 50000
-    epochs = 50
+    epochs = 80
     transformss = tortra.Compose([
             tortra.ToTensor(),
             tortra.Normalize((0.1307,), (0.3081,)),
@@ -174,6 +174,7 @@ if __name__ == "__main__":
 
 
     # FF_experiment()
+    
     FF_experiment_withNN()
     # BP
     # BP_experiment()
