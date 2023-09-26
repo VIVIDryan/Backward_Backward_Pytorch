@@ -100,7 +100,7 @@ def FF_experiment_withNN():
     pos_train_loader = pos_train_loader[0]
     
     
-    neg_dataset = torch.load('./data/transformed_flattendataset.pt')
+    neg_dataset = torch.load('/home/datasets/SNN/transformed_flattendataset.pt')
     neg_train_loader = DataLoader(neg_dataset, batch_size=batchsize)
     
     unsuperviesd_ff = FFNet_Unsupervised([28*28, 500, 500, 500, 10], n_epochs = epochs, device = DEVICE)
