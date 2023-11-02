@@ -1,18 +1,16 @@
 from torchvision import datasets
 from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, ToTensor, Normalize, Lambda, transforms
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader, Subset, Dataset
 import sys
 import os
 sys.path.append(os.path.dirname(sys.path[0]))
 import utils.misc as misc
 import pandas as pd
 import torch
+import random
+import numpy as np
 
-
-# ---------------------------------------------------------------------------- #
-#                                 ESC50_loaders                                #
-# ---------------------------------------------------------------------------- #
 def ESC50_loaders(path='/home/datasets/SNN/ESC50/', batch_size=64, num_subsets=1):
     '''
     num_subsets：训练集划分数量
@@ -45,9 +43,7 @@ def ESC50_loaders(path='/home/datasets/SNN/ESC50/', batch_size=64, num_subsets=1
     
     return train_loaders, test_loader
 
-# ---------------------------------------------------------------------------- #
-#                                      MSD                                     #
-# ---------------------------------------------------------------------------- #
+
 def MSD_loaders(path='/home/datasets/SNN/MSD/', batch_size=64, num_subsets=1):
     '''
     num_subsets：训练集划分数量
@@ -111,9 +107,7 @@ def MSD_loaders(path='/home/datasets/SNN/MSD/', batch_size=64, num_subsets=1):
     
     return train_loaders, test_loader, valid_loader
 
-# ---------------------------------------------------------------------------- #
-#                                     MNIST                                    #
-# ---------------------------------------------------------------------------- #
+
 
 def MNIST_loaders(batch_size=50000, num_subsets=1, transform=None, fixed_number = False, amount = 10000):
     '''
@@ -197,6 +191,94 @@ def debug_loaders(train_batch_size=50000, test_batch_size=10000):
 
     return train_loader, test_loader
 
+class CreateMNISTSNNDataset(Dataset):
+    def __init__(self, mnist_dataset):
+        self.mnist_dataset = mnist_dataset
+
+    def __len__(self):
+        return len(self.mnist_dataset)
+
+    def __getitem__(self, index):
+        image, label = self.mnist_dataset[index]
+
+        # 将图像放置在100x100的黑色像素中
+        image = self.place_mnist_in_black_background(image)
+
+        return image, label
+
+    def place_mnist_in_black_background(self, image):
+        # 创建一个100x100的黑色像素画布
+        background = np.zeros((200, 200))
+
+        # 随机选择图像的位置
+        x = random.randint(0, 200 - 28)  # 28是MNIST图像的宽度
+        y = random.randint(0, 200 - 28)  # 28是MNIST图像的高度
+
+        # 将图像复制到黑色背景中的随机位置
+        background[y:y+28, x:x+28] = image
+
+        return background
+
+def MNIST_SNN_loaders(batch_size=50000, num_subsets=1, transform=None, fixed_number = False, amount = 10000):
+    '''
+    num_subsets: 训练集划分数量
+    description: 输入batch_size和需要划分的数量
+    fixed_number: 是否固定每个client中的数据集数量
+    amount: 数据集数量
+    return {*}
+    ''' 
+    if transform is None:  
+        transform = Compose([
+            ToTensor(),
+            Normalize((0.1307,), (0.3081,)),
+            Lambda(lambda x: torch.flatten(x))
+            ])
+
+    train_dataset =CreateMNISTSNNDataset( MNIST('/home/datasets/SNN/', train=True, download=False, transform=transform))
+    test_dataset = CreateMNISTSNNDataset(MNIST('/home/datasets/SNN/', train=False, download=False, transform=transform))
+    train_loaders = []
+    # Calculate the size of each subset
+    if fixed_number:
+        subset_size =amount
+        num_samples = len(train_dataset)
+        if num_subsets > 1:
+            step = (num_samples - num_subsets * subset_size) // (num_subsets - 1)
+        else:
+            step = 0  # 当 num_subsets 为 1 时，无需间隔步长
+        train_loaders = []
+        start_idx = 0
+        for i in range(num_subsets):
+            # Calculate the ending index for each subset
+            end_idx = min(start_idx + subset_size, num_samples)
+
+            # Create a subset of the train_dataset using the indices
+            subset = Subset(train_dataset, list(range(start_idx, end_idx)))
+
+            # Create a DataLoader for each subset
+            train_loader = DataLoader(subset, batch_size=batch_size, shuffle=True, drop_last=True)
+            train_loaders.append(train_loader)
+
+            # Update the starting index for the next subset
+            start_idx = end_idx + step
+    else:
+        subset_size = len(train_dataset) // num_subsets
+        for i in range(num_subsets):
+            # Calculate the starting and ending indices for each subset
+            start_idx = i * subset_size
+            end_idx = start_idx + subset_size
+            # Create a subset of the train_dataset using the indices
+            subset = Subset(train_dataset, list(range(start_idx, end_idx)))
+            # Create a DataLoader for each subset
+            train_loader = DataLoader(subset, batch_size=batch_size, shuffle=True, drop_last=True)
+            train_loaders.append(train_loader)
+
+    test_loader = DataLoader(test_dataset, batch_size=10000, shuffle=True, drop_last=True)
+
+    return train_loaders, test_loader
+
+
+
+
 if __name__ == '__main__':
-    train, test = MNIST_loaders(batch_size=10000, num_subsets=1, transform=None, fixed_number = True, amount = 20000)
+    train, test = MNIST_SNN_loaders(batch_size=10000, num_subsets=1, transform=None, fixed_number = True, amount = 20000)
     print(len(test))
