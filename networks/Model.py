@@ -20,7 +20,7 @@ from utils.misc import overlay_y_on_x, Conv_overlay_y_on_x
 from networks.block import FC_block
 
 
-DEVICE = torch.device('cuda:1')
+DEVICE = torch.device('cuda:3')
 writer = SummaryWriter(comment=f"FFLayer")
 
 def goodness_score(pos_acts, neg_acts, threshold=2):
@@ -101,7 +101,7 @@ class FFLayer(nn.Linear):
 
     def forward(self, input):
         input = super().forward(input)
-        input = self.ln_layer(input.detach())
+        # input = self.ln_layer(input.detach())
         return input
 
     def ftrain(self, x_pos, x_neg):
@@ -110,7 +110,7 @@ class FFLayer(nn.Linear):
         """
         self.opt.zero_grad()
         goodness = self.goodness(x_pos, x_neg, self.threshold)
-        goodness.backward()
+        goodness.backward(retain_graph=True)
         self.opt.step()
 
 class FFNet(torch.nn.Module):
@@ -641,3 +641,43 @@ class SNNv2(nn.Module):
             mem2_rec.append(mem2)
 
         return torch.stack(spk2_rec, dim=0), torch.stack(mem2_rec, dim=0)
+    
+    
+    
+class CNNNet(torch.nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.layers = []
+
+        self.feature = nn.Sequential(
+            #1
+            nn.Conv2d(in_channels=1, out_channels=6, kernel_size=5, stride=1, padding=2),   # 28*28->32*32-->28*28
+            nn.Tanh(),
+            nn.AvgPool2d(kernel_size=2, stride=2),  # 14*14
+            
+            #2
+            nn.Conv2d(in_channels=6, out_channels=16, kernel_size=5, stride=1),  # 10*10
+            nn.Tanh(),
+            nn.AvgPool2d(kernel_size=2, stride=2),  # 5*5
+            
+        )
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(in_features=16*5*5, out_features=120),
+            nn.Tanh(),
+            nn.Linear(in_features=120, out_features=84),
+            nn.Tanh(),
+            nn.Linear(in_features=84, out_features=num_classes),
+        )
+        
+    def forward(self, x):
+        return self.classifier(self.feature(x))
+
+    # def trainnet(self, x):
+    #     y = self.forward(x)
+    #     return y
+
+    def predict(self, x):
+        y = self.forward(x)
+
+        return y

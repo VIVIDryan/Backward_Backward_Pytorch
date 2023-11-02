@@ -19,7 +19,7 @@ torch.backends.cudnn.enable =True
 torch.backends.cudnn.benchmark = True
 
 
-DEVICE = torch.device('cuda:2')
+DEVICE = torch.device('cuda:3')
 config ={
     'lr' : 0.001,
     'epoch': 50,

@@ -12,7 +12,7 @@ def MSC_premodel():
 
     '''    
     train_loader, test_loader = MSD_loaders()
-    device = torch.device("cuda:2")
+    device = torch.device("cuda:3")
     model = models.resnet50(pretrained = True).to(device)
     summary(model, (3, 224, 224))
     for param in model.parameters():
@@ -131,11 +131,11 @@ def ESC_premodel():
             return x
     
     
-    device = torch.device('cuda:2')
+    device = torch.device('cuda:3')
     model = SimpleCnn()
     model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=0.001)
-    def train(model, optimizer, loss_fn, train_loader, val_loader, epochs=5, device='cuda:2'):
+    def train(model, optimizer, loss_fn, train_loader, val_loader, epochs=5, device='cuda:3'):
         for epoch in range(epochs):
             training_loss = 0.0
             valid_loss = 0.0

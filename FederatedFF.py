@@ -17,12 +17,11 @@ from utils import misc
 torch.backends.cudnn.enable =True
 torch.backends.cudnn.benchmark = True
 
-DEVICE = torch.device('cuda:2')
+DEVICE = torch.device('cuda:3')
 config = {
     'lr': 0.001,
-    'epoch': 100,
-    'globalepoch': 100
-}
+    'epoch': 10,
+    'globalepoch': 100}
 
 
 def FedAvg(Userlist, Global_model):
@@ -68,9 +67,10 @@ def FederatedFF_experiment(num_of_clients):
             tortra.Normalize((0.1307,), (0.3081,)),
             tortra.Lambda(lambda x: torch.flatten(x))
             ])
-    train_loader, test_loader = MNIST_loaders(batch_size=50000, transform=transform, num_subsets=num_of_clients)
-    client_step = [iter(_) for _ in train_loader]
-    
+
+    # client_step = [iter(_) for _ in train_loader]
+
+    train_loader, test_loader = MNIST_loaders(transform=transform, num_subsets=num_of_clients, fixed_number = False, amount = 10000)  
     server_model = FFNet([784, 500, 500]).to(DEVICE) 
     client_models = [copy.copy(server_model) for _ in range(num_of_clients)]
 
@@ -82,9 +82,20 @@ def FederatedFF_experiment(num_of_clients):
     
     outertqdm = tqdm(range(config['globalepoch']), desc=f"Global Epoch", position=0)
     
+    client_accuracies = [[] for _ in range(num_of_clients)]
+    global_accuracies = []
+
     for epoch in outertqdm:
+        # train_loader = []
+        # for c in range(num_of_clients):
+        #     a, _ = debug_loaders()
+        #     train_loader.append(a)
+        # _, test_loader = debug_loaders()
+        
+
         print(f"Global epoch {epoch+1}")
         inertqdm = tqdm(train_loader, desc=f"Local client", position=1, leave=False)
+        train_acc = []
         for i, iterator in enumerate(inertqdm):
             for data in iterator:
                 x, y = data
@@ -95,6 +106,9 @@ def FederatedFF_experiment(num_of_clients):
                 client_models[i].ftrain(x_pos, x_neg)
                 acc = client_models[i].predict(x).eq(y).float().mean().item()
                 train_acc.append(acc)
+            
+            ## accord for client acc
+            client_accuracies[i].append(sum(train_acc)/len(train_acc))
         
         client_models, server_model = FedAvg(client_models, server_model)
         
@@ -106,10 +120,34 @@ def FederatedFF_experiment(num_of_clients):
             acc = server_model.predict(x).eq(y).float().mean().item()
             test_acc.append(acc)
         
-        avg_testacc = sum(test_acc)/len(test_acc)    
-        writer.add_scalar('FederatedFF/globaltrainacc', avg_testacc, epoch)  
+        avg_testacc = sum(test_acc)/len(test_acc) 
+        global_accuracies.append(avg_testacc)   
+        # writer.add_scalar('FederatedFF/globaltrainacc', avg_testacc, epoch)  
         print(f"GLobal epoch: test acc {avg_testacc}\n")
            
+
+
+    plt.figure(figsize=(10, 5))
+    plt.subplot(1, 2, 1)
+    plt.plot(global_accuracies, label='Global Model Test Accuracy')
+    plt.xlabel('Global Epoch')
+    plt.ylabel('Accuracy')
+    plt.title('Global Model Test Accuracy')
+    plt.legend()
+
+    # 绘制每个客户端的训练精度
+    plt.subplot(1, 2, 2)
+    for i, client_acc in enumerate(client_accuracies):
+        plt.plot(client_acc, label=f'Client {i} Training Accuracy')
+
+    plt.xlabel('Global Epoch')
+    plt.ylabel('Accuracy')
+    plt.title('Client Training Accuracy')
+    plt.legend()
+
+
+    plt.savefig('figures/FederatedFF/FederatedFF_G_{0}_L_{1}_lr_{2}_Client_{3}.png'.format(config['globalepoch'], config['epoch'], config['lr'], num_of_clients))
+    plt.show()
             
             
             
@@ -135,7 +173,8 @@ def FederatedFF_experiment(num_of_clients):
     
 
 if __name__ == "__main__":
-    
-    for client in range(20,110,10):
-        writer = SummaryWriter(comment=f"LR_{config['lr']}_EPOCH_{config['epoch']}_FederatedFF_{client}")
-        FederatedFF_experiment(client) 
+    client = 4
+    FederatedFF_experiment(client) 
+    # for client in range(20,110,10):
+    #     writer = SummaryWriter(comment=f"LR_{config['lr']}_EPOCH_{config['epoch']}_FederatedFF_{client}")
+    #     FederatedFF_experiment(client) 

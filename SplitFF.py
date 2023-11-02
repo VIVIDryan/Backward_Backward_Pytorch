@@ -6,7 +6,7 @@ from utils.misc import *
 from torchvision import transforms as tortra
 from tqdm import trange, tqdm
 
-DEVICE = torch.device("cuda:2")
+DEVICE = torch.device("cuda:3")
 from torch.utils.tensorboard import SummaryWriter
 
 config = {"lr": 0.001, "epoch": 50, "batchsize": 64}

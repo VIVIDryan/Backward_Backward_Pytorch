@@ -12,7 +12,7 @@ batch_size = 256
 data_path = '/home/datasets/SNN/'
 
 dtype = torch.float
-DEVICE = torch.device('cuda:2')
+DEVICE = torch.device('cuda:3')
 
 # Define a transform
 transform = transforms.Compose([
@@ -78,9 +78,13 @@ class SNNNet(nn.Module):
         mem2_rec = []
 
         for step in range(num_steps):
+            # 数据集中的所有输入像素应用线性变换;
             cur1 = self.fc1(x)
+            # 随着时间的推移对加权输入进行集成，如果满足阈值条件，则发出脉冲;
             spk1, mem1 = self.lif1(cur1, mem1)
+            # `fc2`对`lif1`的输出峰值进行线性变换;
             cur2 = self.fc2(spk1)
+            #  脉冲神经元层，随着时间的推移整合加权脉冲
             spk2, mem2 = self.lif2(cur2, mem2)
             spk2_rec.append(spk2)
             mem2_rec.append(mem2)
