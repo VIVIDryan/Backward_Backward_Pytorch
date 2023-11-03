@@ -119,7 +119,7 @@ class CreateMNISTSNNDataset(Dataset):
         # 将图像放置在100x100的黑色像素中
         image = self.place_mnist_in_black_background(image)
 
-        return image, label
+        return torch.tensor(image), label
 
     def place_mnist_in_black_background(self, image):
         # 创建一个100x100的黑色像素画布
@@ -130,9 +130,10 @@ class CreateMNISTSNNDataset(Dataset):
         y = random.randint(0, 200 - 28)  # 28是MNIST图像的高度
 
         # 将图像复制到黑色背景中的随机位置
-        background[y:y+28, x:x+28] = image
+        image_reshaped = image.reshape(28, 28)
+        background[y:y+28, x:x+28] = image_reshaped
 
-        return background
+        return background.flatten()
 
 
 def MNIST_loaders(batch_size=50000, num_subsets=1, transform=None, fixed_number = False, amount = 10000, SNN = False):
@@ -282,5 +283,5 @@ def debug_loaders(train_batch_size=50000, test_batch_size=10000):
 
 
 if __name__ == '__main__':
-    train, test = MNIST_loaders(batch_size=10000, num_subsets=1, transform=None, fixed_number = True, amount = 20000)
+    train, test = MNIST_loaders(batch_size=10000, num_subsets=2, transform=None, fixed_number = True, amount = 20000,SNN=True)
     print(len(test))
