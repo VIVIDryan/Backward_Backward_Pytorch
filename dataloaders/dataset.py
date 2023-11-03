@@ -106,7 +106,33 @@ def MSD_loaders(path='/home/datasets/SNN/MSD/', batch_size=64, num_subsets=1):
     test_loader = DataLoader(test_data, batch_size=32, shuffle=True)
     
     return train_loaders, test_loader, valid_loader
+class CreateMNISTSNNDataset(Dataset):
+    def __init__(self, mnist_dataset):
+        self.mnist_dataset = mnist_dataset
 
+    def __len__(self):
+        return len(self.mnist_dataset)
+
+    def __getitem__(self, index):
+        image, label = self.mnist_dataset[index]
+
+        # 将图像放置在100x100的黑色像素中
+        image = self.place_mnist_in_black_background(image)
+
+        return image, label
+
+    def place_mnist_in_black_background(self, image):
+        # 创建一个100x100的黑色像素画布
+        background = np.zeros((200, 200))
+
+        # 随机选择图像的位置
+        x = random.randint(0, 200 - 28)  # 28是MNIST图像的宽度
+        y = random.randint(0, 200 - 28)  # 28是MNIST图像的高度
+
+        # 将图像复制到黑色背景中的随机位置
+        background[y:y+28, x:x+28] = image
+
+        return background
 
 
 def MNIST_loaders(batch_size=50000, num_subsets=1, transform=None, fixed_number = False, amount = 10000, SNN = False):
@@ -194,33 +220,6 @@ def debug_loaders(train_batch_size=50000, test_batch_size=10000):
 
     return train_loader, test_loader
 
-class CreateMNISTSNNDataset(Dataset):
-    def __init__(self, mnist_dataset):
-        self.mnist_dataset = mnist_dataset
-
-    def __len__(self):
-        return len(self.mnist_dataset)
-
-    def __getitem__(self, index):
-        image, label = self.mnist_dataset[index]
-
-        # 将图像放置在100x100的黑色像素中
-        image = self.place_mnist_in_black_background(image)
-
-        return image, label
-
-    def place_mnist_in_black_background(self, image):
-        # 创建一个100x100的黑色像素画布
-        background = np.zeros((200, 200))
-
-        # 随机选择图像的位置
-        x = random.randint(0, 200 - 28)  # 28是MNIST图像的宽度
-        y = random.randint(0, 200 - 28)  # 28是MNIST图像的高度
-
-        # 将图像复制到黑色背景中的随机位置
-        background[y:y+28, x:x+28] = image
-
-        return background
 
 # def MNIST_SNN_loaders(batch_size=50000, num_subsets=1, transform=None, fixed_number = False, amount = 10000):
 #     '''
