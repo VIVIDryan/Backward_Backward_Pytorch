@@ -165,7 +165,7 @@ def plot_loss(loss):
     plt.xlabel("Epochs")
     plt.ylabel("Loss")
     plt.title("Loss Plot")
-    plt.savefig("Loss Plot.png")
+    plt.savefig("figures/SNNFF/Loss Plot.png")
     plt.show()
 
 

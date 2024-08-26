@@ -29,7 +29,7 @@ logging.basicConfig(
 
 
 
-DEVICE = torch.device('cuda:1')
+DEVICE = torch.device('cuda:3')
 config = {
     'lr': 5e-4,
     'epoch': 3,
@@ -156,7 +156,7 @@ def FederatedSNNv2_experiment(num_of_clients):
     'epoch': 3,
     'globalepoch': 50,
     'batchsize': 1024,
-    'num_steps':25
+    'num_steps':20
     }
     # config['globalepoch'], config['epoch'], config['lr'], num_of_clients
     print('Global epoch:{0} \
@@ -207,7 +207,8 @@ def FederatedSNNv2_experiment(num_of_clients):
                 for data, targets in train_batch:
                     data = data.to(DEVICE)
                     targets = targets.to(DEVICE)
-
+                    
+                    # mem_rec: [time_step, batchsize, classnum]
                     # forward pass
                     spk_rec, mem_rec = client_models[i](data.view(config['batchsize'], -1))
 
@@ -359,6 +360,6 @@ def FederatedSNN_experiment(num_of_clients):
 if __name__ == "__main__":
     
     
-    # writer = SummaryWriter(comment=f"LR_{config['lr']}_EPOCH_{config['epoch']}_FederatedSNNv2_{5}")
-    # FederatedSNNv2_experiment(5) 
-    FederatedCNN_experiment(4)
+    writer = SummaryWriter(comment=f"LR_{config['lr']}_EPOCH_{config['epoch']}_FederatedSNNv2_{5}")
+    FederatedSNNv2_experiment(4) 
+    # FederatedCNN_experiment(4)

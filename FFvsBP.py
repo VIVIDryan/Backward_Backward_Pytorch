@@ -16,7 +16,7 @@ import sys
 import logging
 
 
-DEVICE = torch.device('cuda:1')
+DEVICE = torch.device('cuda:3')
 config = {
     'lr': 0.001,
     'epoch': 50,

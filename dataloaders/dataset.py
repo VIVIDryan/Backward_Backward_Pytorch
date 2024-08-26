@@ -192,12 +192,69 @@ def MNIST_loaders(batch_size=50000, num_subsets=1, transform=None, fixed_number 
             train_loader = DataLoader(subset, batch_size=batch_size, shuffle=True, drop_last=True)
             train_loaders.append(train_loader)
 
-    test_loader = DataLoader(test_dataset, batch_size=10000, shuffle=True, drop_last=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
 
     return train_loaders, test_loader
 
+def add_gaussian_noise(img, mean=0.0, std=1.0):
+    noise = torch.randn(img.size()) * std + mean
+    return img + noise
 
 
+def MNIST_Noisyloaders(batch_size=50000, num_subsets=1, transform=None, fixed_number=False, amount=10000, SNN=False, noise_mean=0.5, noise_std=2.0):
+
+    if transform is None:
+        transform = Compose([
+            ToTensor(),
+            Normalize((0.1307,), (0.3081,)),
+            Lambda(lambda x: add_gaussian_noise(x, mean=noise_mean, std=noise_std)),
+            Lambda(lambda x: torch.flatten(x))
+        ])
+
+    train_dataset = MNIST('/home/datasets/SNN/', train=True, download=False, transform=transform)
+    test_dataset = MNIST('/home/datasets/SNN/', train=False, download=False, transform=transform)
+    if SNN:
+            train_dataset =CreateMNISTSNNDataset( MNIST('/home/datasets/SNN/', train=True, download=False, transform=transform))
+            test_dataset = CreateMNISTSNNDataset(MNIST('/home/datasets/SNN/', train=False, download=False, transform=transform))
+    train_loaders = []
+    # Calculate the size of each subset
+    if fixed_number:
+        subset_size =amount
+        num_samples = len(train_dataset)
+        if num_subsets > 1:
+            step = (num_samples - num_subsets * subset_size) // (num_subsets - 1)
+        else:
+            step = 0  # 当 num_subsets 为 1 时，无需间隔步长
+        train_loaders = []
+        start_idx = 0
+        for i in range(num_subsets):
+            # Calculate the ending index for each subset
+            end_idx = min(start_idx + subset_size, num_samples)
+
+            # Create a subset of the train_dataset using the indices
+            subset = Subset(train_dataset, list(range(start_idx, end_idx)))
+
+            # Create a DataLoader for each subset
+            train_loader = DataLoader(subset, batch_size=batch_size, shuffle=True, drop_last=True)
+            train_loaders.append(train_loader)
+
+            # Update the starting index for the next subset
+            start_idx = end_idx + step
+    else:
+        subset_size = len(train_dataset) // num_subsets
+        for i in range(num_subsets):
+            # Calculate the starting and ending indices for each subset
+            start_idx = i * subset_size
+            end_idx = start_idx + subset_size
+            # Create a subset of the train_dataset using the indices
+            subset = Subset(train_dataset, list(range(start_idx, end_idx)))
+            # Create a DataLoader for each subset
+            train_loader = DataLoader(subset, batch_size=batch_size, shuffle=True, drop_last=True)
+            train_loaders.append(train_loader)
+
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+
+    return train_loaders, test_loader
 
 def debug_loaders(train_batch_size=50000, test_batch_size=10000):
 

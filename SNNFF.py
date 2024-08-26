@@ -50,14 +50,6 @@ class FFLeaky(snn.Leaky):
         goodness.backward(retain_graph=True)
         self.opt.step()
         
-    
-        
-        
-
-
-
-
-
 
 class FF_SNN(nn.Module):
     """
@@ -68,7 +60,7 @@ class FF_SNN(nn.Module):
         # Initialize layers
         self.layersize = layersize
         self.device = device
-        self.beta = 0.90
+        self.beta = 0.80
         self.num_steps = 25
 
         self.fc1 = FFLayer(self.layersize[0], self.layersize[1], device=device)
@@ -142,8 +134,11 @@ class FF_SNN(nn.Module):
                         ## dont calculate the forward loss just forward the output
                         
 
+                    
                     if isinstance(layer, FFLeaky):
-                        layer.ftrain(pos_mem, neg_mem, self.num_steps)
+                        layer.ftrain(pos_mem, neg_mem, self.num_steps)    
+                    else:
+                        layer.ftrain(pos_acts, neg_acts)
                 
                 
                 
@@ -189,15 +184,6 @@ class FF_SNN(nn.Module):
         logging.warning(f'Test Accuracy: {accuracy}%')
         return accuracy
         
-
-
-
-
-
-
-
-
-
 
 def SNNFF_experiment_withNN():
     """
