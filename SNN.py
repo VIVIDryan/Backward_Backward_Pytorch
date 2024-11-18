@@ -218,7 +218,7 @@ def snn_experiment():
     # train_loader = DataLoader(mnist_train, batch_size=batch_size, shuffle=True, drop_last=True)
     # test_loader = DataLoader(mnist_test, batch_size=batch_size, shuffle=True, drop_last=False)
 
-    train_loader,test_loader = MNIST_loaders(batch_size=batch_size, transform=transform, SNN =True)
+    train_loader,test_loader = MNIST_loaders(batch_size=batch_size, transform=transform, SNN =False)
     
     train_loader = train_loader[0]
     
@@ -227,8 +227,8 @@ def snn_experiment():
     num_steps = 25
     # Load the network onto CUDA if available
     net = SNNNet(
-            num_inputs = 200*200,
-            num_hidden = 1000,
+            num_inputs = 28*28,
+            num_hidden = 3000,
             num_outputs = 10,
             num_steps = 25,
             beta = 0.95,
@@ -237,7 +237,7 @@ def snn_experiment():
     loss = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), lr=6e-4, betas=(0.9, 0.999))
 
-    num_epochs = 100 
+    num_epochs = 40
     train_accuracy_hist = []  # 用于存储训练精度
     test_accuracy_hist = []   # 用于存储测试精度
     train_loss_hist = []      # 用于存储训练损失
@@ -827,12 +827,12 @@ def mlp_noisyexperiment():
 if __name__  == "__main__":
     
     ## Noise Modification
-    Modify_noisy(mean=0, std=0.2)
+    # Modify_noisy(mean=0, std=0.2)
     
     
-    
+   snn_experiment() 
     #snn_fewshotexperiment()
-    snn_noisyexperiment()
+    # snn_noisyexperiment()
     # mlp_experiment()
     #mlp_fewshotexperiment()
     # mlp_noisyexperiment()

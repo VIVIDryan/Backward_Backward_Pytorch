@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# File              : CSDPSynapse.py
+# Author            : TravisChen <chenxuqiangwork@outlook.com>
+# Date              : 15.10.2024
+# Last Modified Date: 15.10.2024
+# Last Modified By  : TravisChen <chenxuqiangwork@outlook.com>
 ### Synapse of the SNN
 from jax import random, numpy as jnp, jit
 from functools import partial
@@ -17,12 +24,17 @@ class CSDPSynapse(DenseSynapse):
 
         ## synaptic plasticity properties and characteristics
         self.shape = shape
+        ## 电阻的缩放因子，影响突出输出的强度
         self.resist_scale = resist_scale
+        ## 限制突触更新的范围
         self.w_bound = w_bound
+
         self.w_sign = w_sign
         self.w_decay = w_decay ## synaptic decay
-        ## TODO 
+        ## TODO
+        ## 学习率，突触更新的速度，
         self.eta = eta
+        ## 添加突触抑制
         self.gamma_depress = gamma_depress
         self.is_nonnegative = is_nonnegative
         self.is_hollow = is_hollow
@@ -32,11 +44,13 @@ class CSDPSynapse(DenseSynapse):
         ## optimization / adjustment properties (given learning dynamics above)
         self.opt = get_opt_step_fn(optim_type, eta=self.eta)
 
+        ## 阻止神经元自连接，通过掩码确保侧向链接没有自连接
         self.weightMask = 1.
         if self.is_hollow:
             self.weightMask = 1. - jnp.eye(N=shape[0], M=shape[1])
 
         # compartments (state of the cell, parameters, will be updated through stateless calls)
+        ## 前突和后突的脉冲和痕迹，用于在前向传播中存储突触状态的容器
         self.preVals = jnp.zeros((self.batch_size, shape[0]))
         self.postVals = jnp.zeros((self.batch_size, shape[1]))
         self.preSpike = Compartment(self.preVals)
@@ -51,6 +65,7 @@ class CSDPSynapse(DenseSynapse):
             [self.weights.value, self.biases.value]
             if bias_init else [self.weights.value]))
 
+    ## 前突脉冲、突触权重和偏差来计算突触的输出。它通过矩阵乘法来计算后突神经元的脉冲活动
     @staticmethod
     def _advance_state(resist_scale, w_sign, inputs, weights, biases):
         factor = w_sign * resist_scale
@@ -61,6 +76,7 @@ class CSDPSynapse(DenseSynapse):
     def advance_state(self, outputs):
         self.outputs.set(outputs)
 
+    ## 脉冲时间依赖性可塑性（STDP）规则来计算突触的更新值。它根据前突和后突神经元的脉冲和痕迹来计算权重更新
     @staticmethod
     def _compute_update(w_bound, update_sign, w_decay, soft_bound, gamma_depress,
                         eta, preSpike, postSpike, preTrace, postTrace, weights,
@@ -82,6 +98,9 @@ class CSDPSynapse(DenseSynapse):
             db = biases * 0
         return dW * update_sign, db * update_sign, Wdecay_factor
 
+
+    ## 负责应用学习规则更新突触的权重和偏差，同时保证突触更新后的权重保持在指定的范围内。
+    ## 该函数会根据计算出的梯度更新权重，并使用优化器进行一步更新，同时应用权重衰减和约束（如非负性或空洞性）。
     @staticmethod
     def _evolve(opt, soft_bound, w_bound, resist_scale, is_nonnegative, update_sign,
                 w_decay, bias_init, gamma_depress, is_hollow, eta,
@@ -90,7 +109,7 @@ class CSDPSynapse(DenseSynapse):
         d_z = postTrace * resist_scale # 0.1 ## get modulated post-synaptic trace
         ## calculate synaptic update values
         dWeights, dBiases, weightDecay = CSDPSynapse._compute_update(
-            w_bound, update_sign, w_decay, soft_bound, gamma_depress, eta, 
+            w_bound, update_sign, w_decay, soft_bound, gamma_depress, eta,
             preSpike, postSpike, preTrace, d_z, weights, biases
         )
         ## conduct a step of optimization - get newly evolved synaptic weight value matrix
@@ -118,7 +137,7 @@ class CSDPSynapse(DenseSynapse):
         self.biases.set(biases)
         self.dWeights.set(dWeights)
         self.dBiases.set(dBiases)
-
+    ## 重置突触的状态，将所有值（脉冲、痕迹、梯度）重置为零。这个函数在每一批数据训练开始时会被调用
     @staticmethod
     def _reset(batch_size, shape):
         preVals = jnp.zeros((batch_size, shape[0]))
@@ -144,6 +163,7 @@ class CSDPSynapse(DenseSynapse):
         self.dWeights.set(dWeights)
         self.dBiases.set(dBiases)
 
+    ## 这是一个实用函数，用于打印突触状态的摘要，包括各个容器（如权重和脉冲）的统计信息（如均值、标准差）。
     def __repr__(self):
         comps = [varname for varname in dir(self) if Compartment.is_compartment(getattr(self, varname))]
         maxlen = max(len(c) for c in comps) + 5

@@ -109,8 +109,8 @@ class CSDP_SNN():
         # CSDP-specific meta-parameters
         self.use_rot = False  ## for unsupervised csdp only
         self.alpha = 0.5  ## for unsupervised csdp only
-        optim_type = "adam" 
-        goodnessThr1 = goodnessThr2 = 10. 
+        optim_type = "adam"
+        goodnessThr1 = goodnessThr2 = 10.
         use_dyn_threshold = False #True
         nonneg_w = False  ## should non-lateral synapses be constrained to be positive-only?
 
@@ -151,7 +151,7 @@ class CSDP_SNN():
             batch_size = 1  # batch_size = batch_size * 2
             with Context("Circuit") as self.circuit:
                 self.z0 = BernoulliCell("z0", n_units=in_dim,
-                                        batch_size=batch_size, key=subkeys[0]) 
+                                        batch_size=batch_size, key=subkeys[0])
                 self.W1 = CSDPSynapse(
                     name="W1", shape=(in_dim, hid_dim), eta=eta_w,
                     weight_init=weightInit, bias_init=biasInit, w_bound=1.,
@@ -253,7 +253,7 @@ class CSDP_SNN():
                         name="V2y", shape=(out_dim, hid_dim), eta=eta_w,
                         weight_init=weightInit, bias_init=biasInit, w_bound=1.,
                         is_nonnegative=nonneg_w, w_decay=w_decay,
-                        resist_scale=R_m, # * skipcontext_syn_factor, 
+                        resist_scale=R_m, # * skipcontext_syn_factor,
                         optim_type=optim_type,
                         soft_bound=soft_bound, key=subkeys[14]
                     ) # no ablation applied here since context is an "input" at least to hidden layer

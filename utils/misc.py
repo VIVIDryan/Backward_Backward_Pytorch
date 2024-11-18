@@ -7,7 +7,7 @@ from collections.abc import Iterable
 
 ## For CSDP
 import itertools
-from jax import numpy as jnp, random, jit, vmap
+from jax import numpy as jnp, random, jit, vmap, lax
 import functools
 from functools import partial
 from ngclearn.utils.metric_utils import measure_ACC, measure_CatNLL

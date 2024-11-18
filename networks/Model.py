@@ -557,7 +557,7 @@ class SNNv1(nn.Module):
         layersize is the size of each layer like [24*24*3, 500, 3]
         stepsize is the batchsize.
         """
-        super(SNN, self).__init__()
+        super(SNNv1, self).__init__()
         self.layers = nn.ModuleList()
         self.layers_size = layersize
         self.lastlayer_size = layersize[-1]
