@@ -31,8 +31,8 @@ logging.basicConfig(
 
 DEVICE = torch.device('cuda:3')
 config = {
-    'lr': 5e-4,
-    'epoch': 3,
+    'lr': 5e-3,
+    'epoch': 1,
     'globalepoch': 50,
     'batchsize': 1024,
     'num_steps':25
@@ -44,7 +44,7 @@ def FederatedCNN_experiment(num_of_clients):
     ANN implement 
     """
     config = {
-    'lr': 5e-3,
+    'lr': 5e-2,
     'epoch': 3,
     'globalepoch': 50,
     'batchsize': 1024,
@@ -152,8 +152,8 @@ def FederatedCNN_experiment(num_of_clients):
 def FederatedSNNv2_experiment(num_of_clients):
     
     config = {
-    'lr': 5e-4,
-    'epoch': 3,
+    'lr': 5e-2,
+    'epoch': 1,
     'globalepoch': 50,
     'batchsize': 1024,
     'num_steps':20
@@ -361,5 +361,5 @@ if __name__ == "__main__":
     
     
     writer = SummaryWriter(comment=f"LR_{config['lr']}_EPOCH_{config['epoch']}_FederatedSNNv2_{5}")
-    FederatedSNNv2_experiment(4) 
+    FederatedSNN_experiment(5) 
     # FederatedCNN_experiment(4)
